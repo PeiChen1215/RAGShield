@@ -1,0 +1,29 @@
+# RAGShield CPU 轻量化版配置
+# 适用环境：无 GPU，纯 CPU 推理
+
+embedding:
+  model: BAAI/bge-small-zh-v1.5
+  device: cpu
+  batch_size: 8
+  compile: false
+
+reranker:
+  model: BAAI/bge-reranker-large
+  device: cpu
+
+nli:
+  model: uer/roberta-base-finetuned-chinanli-chinese
+  device: cpu
+
+detection:
+  if_contamination: 0.1
+  lof_n_neighbors: 20
+  nli_similarity_threshold: 0.3
+  nli_contradiction_threshold: 0.3
+  variance_threshold: 0.5
+  entropy_threshold: 1.0
+
+fusion:
+  knowledge_weight: 0.30
+  retrieval_weight: 0.30
+  generation_weight: 0.40

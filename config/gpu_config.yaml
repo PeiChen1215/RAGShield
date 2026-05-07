@@ -1,0 +1,29 @@
+# RAGShield GPU 高性能版配置
+# 适用环境：NVIDIA RTX 3060+，CUDA 可用
+
+embedding:
+  model: BAAI/bge-m3
+  device: cuda
+  batch_size: 32
+  compile: true  # torch.compile 加速
+
+reranker:
+  model: BAAI/bge-reranker-large
+  device: cuda
+
+nli:
+  model: uer/roberta-base-finetuned-chinanli-chinese
+  device: cuda
+
+detection:
+  if_contamination: 0.1
+  lof_n_neighbors: 20
+  nli_similarity_threshold: 0.3
+  nli_contradiction_threshold: 0.3
+  variance_threshold: 0.5
+  entropy_threshold: 1.0
+
+fusion:
+  knowledge_weight: 0.30
+  retrieval_weight: 0.30
+  generation_weight: 0.40

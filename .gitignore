@@ -1,3 +1,8 @@
+# 环境变量（含 API Key）
+.env
+.env.local
+.env.production
+
 # Python
 __pycache__/
 *.py[cod]
@@ -20,43 +25,29 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual environments
+# 虚拟环境
 venv/
-.venv/
-env/
 ENV/
+env/
+.venv/
 
-# IDEs
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# Environment variables / Secrets
-.env
-.env.*
-!.env.example
-*.key
-*.pem
+# 测试
+.pytest_cache/
+.coverage
+htmlcov/
 
-# Model caches
-models/
-~/.cache/
-*.bin
-*.safetensors
-
-# ChromaDB local data
-chroma_db/
+# 数据（大文件）
 data/chroma_db/
-
-# Logs
-logs/
-*.log
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Docker
 *.tar
+*.zip
+*.gz
+
+# 模型缓存（运行时下载）
+models/
