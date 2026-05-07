@@ -1,11 +1,13 @@
-# RAGShield CPU 轻量化版配置
-# 适用环境：无 GPU，纯 CPU 推理
+# RAGShield 统一配置文件
+# 通过修改 profile 和 device 字段切换 GPU/CPU 模式
+
+profile: cpu  # gpu | cpu
 
 embedding:
-  model: BAAI/bge-small-zh-v1.5
-  device: cpu
-  batch_size: 8
-  compile: false
+  model: BAAI/bge-small-zh-v1.5  # cpu 默认；gpu 时改为 BAAI/bge-m3
+  device: cpu                     # cuda | cpu
+  batch_size: 8                   # cpu: 8；gpu: 32
+  compile: false                  # cpu: false；gpu: true
 
 reranker:
   model: BAAI/bge-reranker-large
