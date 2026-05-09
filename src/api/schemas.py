@@ -24,7 +24,14 @@ class Document(BaseModel):
 
     doc_id: str = Field(..., description="文档唯一标识")
     text: str = Field(..., description="文档正文", min_length=1)
-    metadata: Dict = Field(default={}, description="文档元数据（category, source 等）")
+    metadata: Dict = Field(
+        default={},
+        description=(
+            "文档元数据。支持字段："
+            "category（语义类别）、"
+            "source（来源可信度标签，可选值：official_policy/employee_submitted/external_import/unknown）等"
+        ),
+    )
 
 
 class RetrievedDocument(Document):

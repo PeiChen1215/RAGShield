@@ -6,12 +6,13 @@
 """
 
 import pytest
+import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 from src.api.main import app
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def async_client():
     """异步 HTTP 客户端。"""
     transport = ASGITransport(app=app)
