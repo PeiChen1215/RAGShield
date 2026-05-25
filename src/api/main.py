@@ -3,8 +3,11 @@
 职责: FastAPI 应用入口，注册路由，启动时预加载模型。
 作者: RAGShield Team
 创建日期: 2026-05-07
+更新日期: 2026-05-10 — Week 2 lifespan 真实加载模型
 """
 
+import asyncio
+import sys
 import time
 from contextlib import asynccontextmanager
 
@@ -12,6 +15,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.routers import kb, query
+from src.core.state import consistency_checker, embedder, sensitive_ner
 
 # 全局模型加载状态（供 /health 读取）
 _MODELS_LOADED = {
@@ -22,21 +26,51 @@ _MODELS_LOADED = {
 }
 _START_TIME = time.time()
 
+# 检测是否在 pytest 中运行（避免测试时触发耗时模型下载）
+_IS_PYTEST = "pytest" in sys.modules
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理：启动时加载模型，关闭时清理资源。"""
-    # TODO: Week 2 实现模型预加载
-    # from src.core.embedder import Embedder
-    # from src.layer3_generation.consistency_checker import ConsistencyChecker
-    # Embedder().load()
-    # ConsistencyChecker().load()
-    _MODELS_LOADED["bge_m3"] = True
-    _MODELS_LOADED["bge_reranker"] = True
-    _MODELS_LOADED["uer_chinanli"] = True
-    _MODELS_LOADED["hanlp"] = True
+    if _IS_PYTEST:
+        # pytest 快速路径：标记全部已加载，避免网络下载阻塞测试
+        _MODELS_LOADED.update({k: True for k in _MODELS_LOADED})
+        yield
+        return
+
+    loop = asyncio.get_event_loop()
+
+    # Step 1: 加载 Embedder（BGE-small，必加载）
+    try:
+        await loop.run_in_executor(None, embedder.load)
+        _MODELS_LOADED["bge_m3"] = True
+        print("[lifespan] ✅ Embedder (BGE-small) 加载完成")
+    except Exception as e:
+        print(f"[lifespan] ❌ Embedder 加载失败: {e}")
+
+    # Step 2: 加载 SensitiveNER（HanLP，轻量）
+    try:
+        await loop.run_in_executor(None, sensitive_ner._load_hanlp)
+        _MODELS_LOADED["hanlp"] = sensitive_ner.use_hanlp
+        print(f"[lifespan] ✅ SensitiveNER 加载完成 (HanLP={sensitive_ner.use_hanlp})")
+    except Exception as e:
+        print(f"[lifespan] ⚠️ SensitiveNER HanLP 加载失败，降级为正则模式: {e}")
+        sensitive_ner.use_hanlp = False
+        _MODELS_LOADED["hanlp"] = False
+
+    # Step 3: 加载 ConsistencyChecker（bge-reranker + chinanli，较重）
+    try:
+        await loop.run_in_executor(None, consistency_checker.load)
+        _MODELS_LOADED["bge_reranker"] = True
+        _MODELS_LOADED["uer_chinanli"] = True
+        print("[lifespan] ✅ ConsistencyChecker (reranker + NLI) 加载完成")
+    except Exception as e:
+        print(f"[lifespan] ⚠️ ConsistencyChecker 加载失败，L3 NLI 将跳过: {e}")
+
     yield
     # 关闭时清理资源
+    print("[lifespan] 🛑 应用关闭，清理资源")
 
 
 app = FastAPI(

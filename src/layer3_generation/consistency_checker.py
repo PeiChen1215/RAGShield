@@ -3,8 +3,10 @@
 职责: bge-reranker + uer/chinanli 双路融合，检索-生成一致性验证。
 作者: RAGShield Team
 创建日期: 2026-05-07
+更新日期: 2026-05-10 — 支持从 ./models/ 本地加载
 """
 
+import os
 from typing import Dict, Tuple
 
 
@@ -29,19 +31,37 @@ class ConsistencyChecker:
         self._nli_model = None
 
     def load(self) -> None:
-        """懒加载双路模型。"""
+        """懒加载双路模型。优先从 ./models/ 本地加载。"""
         if self._reranker is not None:
             return
         from sentence_transformers import CrossEncoder
         from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
-        self._reranker = CrossEncoder("BAAI/bge-reranker-large")
-        self._nli_tokenizer = AutoTokenizer.from_pretrained(
-            "uer/roberta-base-finetuned-chinanli-chinese"
-        )
-        self._nli_model = AutoModelForSequenceClassification.from_pretrained(
-            "uer/roberta-base-finetuned-chinanli-chinese"
-        )
+        root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        rerank_local = os.path.join(root, "models", "bge-reranker-large")
+        nli_local = os.path.join(root, "models", "chinanli")
+
+        # 加载 reranker
+        if os.path.exists(rerank_local):
+            print(f"[ConsistencyChecker] Loading reranker from local: {rerank_local}")
+            self._reranker = CrossEncoder(rerank_local)
+        else:
+            print("[ConsistencyChecker] Downloading reranker from HuggingFace")
+            self._reranker = CrossEncoder("BAAI/bge-reranker-large")
+
+        # 加载 NLI
+        if os.path.exists(nli_local):
+            print(f"[ConsistencyChecker] Loading NLI from local: {nli_local}")
+            self._nli_tokenizer = AutoTokenizer.from_pretrained(nli_local)
+            self._nli_model = AutoModelForSequenceClassification.from_pretrained(nli_local)
+        else:
+            print("[ConsistencyChecker] Downloading NLI from HuggingFace")
+            self._nli_tokenizer = AutoTokenizer.from_pretrained(
+                "MoritzLaurer/mDeBERTa-v3-base-mnli-xnli"
+            )
+            self._nli_model = AutoModelForSequenceClassification.from_pretrained(
+                "MoritzLaurer/mDeBERTa-v3-base-mnli-xnli"
+            )
 
     def check(
         self, premise: str, hypothesis: str

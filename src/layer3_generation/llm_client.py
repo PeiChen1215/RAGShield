@@ -1,14 +1,18 @@
 """
 模块名: src/layer3_generation/llm_client.py
-职责: Kimi API / Qwen2.5 封装，统一 LLM 生成接口。
+职责: DeepSeek / Kimi 封装，统一 LLM 生成接口。
 作者: RAGShield Team
 创建日期: 2026-05-07
+更新日期: 2026-05-10 — 切换为 DeepSeek-V4
 """
 
 import os
 from typing import List, Optional
 
+from dotenv import load_dotenv
 from openai import AsyncOpenAI
+
+load_dotenv()  # 加载 .env 中的环境变量
 
 
 class LLMClient:
@@ -18,17 +22,17 @@ class LLMClient:
         self,
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
-        model: str = "moonshot-v1-8k",
+        model: str = "deepseek-v4-pro",
     ):
         """初始化 LLM 客户端。
 
         Args:
-            api_key: API Key，默认从环境变量 KIMI_API_KEY 读取。
-            base_url: API 基础 URL。
-            model: 模型名称。
+            api_key: API Key，默认从环境变量 DEEPSEEK_API_KEY 读取。
+            base_url: API 基础 URL，默认 DeepSeek 官方端点。
+            model: 模型名称，默认 deepseek-v4。
         """
-        self.api_key = api_key or os.getenv("KIMI_API_KEY", "")
-        self.base_url = base_url or os.getenv("KIMI_BASE_URL", "https://api.moonshot.cn/v1")
+        self.api_key = api_key or os.getenv("DEEPSEEK_API_KEY", "")
+        self.base_url = base_url or os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
         self.model = model
         self._client: Optional[AsyncOpenAI] = None
 
@@ -68,5 +72,6 @@ class LLMClient:
             model=self.model,
             messages=messages,
             temperature=temperature,
+            max_tokens=256,
         )
         return response.choices[0].message.content or ""

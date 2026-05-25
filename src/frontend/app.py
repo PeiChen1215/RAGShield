@@ -25,22 +25,29 @@ async def on_query_submit(query: str, kb_id: str = "default"):
         resp = await client.post(
             f"{API_BASE}/query",
             json={"query": query, "kb_id": kb_id, "top_k": 5, "generate_answer": True},
-            timeout=60.0,
+            timeout=120.0,
         )
         result = resp.json()
 
+    # 颜色与状态根据 risk_level 判定（与后端一致）
+    risk_level = result.get("risk_level", "safe")
     risk_color = (
         "green"
-        if result["is_safe"]
+        if risk_level == "safe"
         else "red"
-        if result["risk_level"] == "danger"
+        if risk_level == "danger"
         else "orange"
     )
-    status = "安全" if result["is_safe"] else "危险" if result["risk_level"] == "danger" else "警告"
+    status = "安全" if risk_level == "safe" else "危险" if risk_level == "danger" else "警告"
 
     blocked_display = ""
     if result.get("blocked_answer"):
         blocked_display = f"\n\n⚠️ **模型原本想回答**：{result['blocked_answer']}\n→ 已被 RAGShield 拦截"
+
+    # warning 时显示系统提示
+    warning_msg = result.get("warning_message", "")
+    if risk_level == "warning" and not warning_msg:
+        warning_msg = "⚠️ 本回答可能包含未核实的信息，请谨慎使用。"
 
     return (
         result.get("answer", "[已阻断]") + blocked_display,
@@ -51,7 +58,7 @@ async def on_query_submit(query: str, kb_id: str = "default"):
             "Layer2 检索层": f"评分: {result['layer2']['risk_score']:.2f} | 耗时: {result['layer2']['latency_ms']}ms | {result['layer2']['reason']}",
             "Layer3 生成层": f"评分: {result['layer3']['risk_score']:.2f} | 耗时: {result['layer3']['latency_ms']}ms | {result['layer3']['reason']}",
         },
-        result.get("warning_message", ""),
+        warning_msg,
     )
 
 

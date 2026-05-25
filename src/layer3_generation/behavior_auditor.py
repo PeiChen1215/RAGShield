@@ -29,7 +29,7 @@ _BEHAVIOR_RISK_MAP = {
     "data_exfiltration": 0.40,        # 数据外泄 = 最高危
     "external_communication": 0.25,   # 外部通信 = 中高危
     "system_command": 0.30,           # 系统命令 = 高危
-    "credential_request": 0.20,       # 索要凭证 = 中危
+    "credential_request": 0.30,       # 索要凭证 = 中高危
 }
 
 

@@ -85,6 +85,21 @@ class VectorStore:
         metadatas = results["metadatas"][0]
         return doc_ids, distances, texts, metadatas
 
+    def get_all(self, kb_id: str):
+        """获取知识库全部文档（用于 Layer1 重新扫描）。
+
+        Returns:
+            (doc_ids, embeddings, texts, metadatas)
+            embeddings 为 list[list[float]]，需外部转 np.ndarray
+        """
+        collection = self.get_or_create_collection(kb_id)
+        results = collection.get(include=["embeddings", "documents", "metadatas"])
+        doc_ids = results["ids"]
+        embeddings = results.get("embeddings", []) if results.get("embeddings") is not None else []
+        texts = results.get("documents", []) if results.get("documents") is not None else []
+        metadatas = results.get("metadatas", []) if results.get("metadatas") is not None else []
+        return doc_ids, embeddings, texts, metadatas
+
     def delete_collection(self, kb_id: str) -> None:
         """删除知识库。"""
         try:

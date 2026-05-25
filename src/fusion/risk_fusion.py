@@ -18,8 +18,8 @@ class RiskFusion:
         knowledge_weight: float = 0.3,
         retrieval_weight: float = 0.3,
         generation_weight: float = 0.4,
-        danger_threshold: float = 0.5,
-        warning_threshold: float = 0.3,
+        danger_threshold: float = 0.4,
+        warning_threshold: float = 0.25,
     ):
         """初始化融合器。
 
@@ -111,7 +111,7 @@ class RiskFusion:
         if layer1_details and "suspicious_docs" in layer1_details:
             for doc in layer1_details.get("suspicious_docs", []):
                 text = doc.get("text", "")
-                if any(kw in text for kw in ["忽略", "执行", "发送", "覆盖"]):
+                if isinstance(text, str) and any(kw in text for kw in ["忽略", "执行", "发送", "覆盖"]):
                     layer1_has_instruction_pattern = True
                     break
 
@@ -119,8 +119,9 @@ class RiskFusion:
             # L3 权重提升到 0.5，L1/L2 各降到 0.25
             weights = {"knowledge": 0.25, "retrieval": 0.25, "generation": 0.5}
 
-        # === 规则3：任意单层达到 danger_threshold，直接阻断 ===
-        if risk_score_1 >= self.danger_threshold or risk_score_3 >= self.danger_threshold:
+        # === 规则3：L3 达到极高风险(0.7+)或L1达到danger_threshold，直接阻断 ===
+        # alert_review(0.60) 不走此捷径，通过正常融合产生warning
+        if risk_score_1 >= self.danger_threshold or risk_score_3 >= 0.7:
             return (
                 1.0,
                 RiskLevel.DANGER,

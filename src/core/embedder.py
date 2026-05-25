@@ -3,8 +3,10 @@
 职责: BGE-M3 / bge-small-zh 统一封装，提供文本嵌入接口。
 作者: RAGShield Team
 创建日期: 2026-05-07
+更新日期: 2026-05-10 — 支持从 ./models/ 本地加载
 """
 
+import os
 from typing import List
 
 import numpy as np
@@ -25,12 +27,20 @@ class Embedder:
         self._model = None
 
     def load(self) -> None:
-        """懒加载模型。"""
+        """懒加载模型。优先从 ./models/ 本地加载，不存在则从 HuggingFace 下载。"""
         if self._model is not None:
             return
         from sentence_transformers import SentenceTransformer
 
-        self._model = SentenceTransformer(self.model_name, device=self.device)
+        root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        local_path = os.path.join(root, "models", "bge-small-zh-v1.5")
+
+        if os.path.exists(local_path):
+            print(f"[Embedder] Loading from local: {local_path}")
+            self._model = SentenceTransformer(local_path, device=self.device)
+        else:
+            print(f"[Embedder] Downloading from HuggingFace: {self.model_name}")
+            self._model = SentenceTransformer(self.model_name, device=self.device)
 
     def embed(self, texts: List[str]) -> np.ndarray:
         """将文本列表编码为向量。

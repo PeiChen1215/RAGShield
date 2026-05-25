@@ -63,9 +63,9 @@ RAGShield 架构遵循以下核心设计原则：
 │  │   知识库层        │  │   检索层         │  │   生成层         │   │
 │  │                  │  │                  │  │                  │   │
 │  │  ┌────────────┐  │  │  ┌────────────┐  │  │  ┌────────────┐  │   │
-│  │  │ 离群检测    │  │  │  │ 注意力方差  │  │  │  │ NLI 双路融合│  │   │
-│  │  │ IF + LOF   │  │  │  │ 分析        │  │  │  │ reranker   │  │   │
-│  │  │ 余弦基线规则│  │  │  │ 注意力熵    │  │  │  │ + chinanli │  │   │
+│  │  │ 多维度检测  │  │  │  │ 注意力方差  │  │  │  │ NLI 双路融合│  │   │
+│  │  │ 语义+文本  │  │  │  │ 分析        │  │  │  │ reranker   │  │   │
+│  │  │ +一致性    │  │  │  │ 注意力熵    │  │  │  │ + chinanli │  │   │
 │  │  └────────────┘  │  │  └────────────┘  │  │  └────────────┘  │   │
 │  │  ┌────────────┐  │  │                  │  │  ┌────────────┐  │   │
 │  │  │ 敏感实体    │  │  │                  │  │  │ 生成内容    │  │   │
@@ -129,7 +129,7 @@ RAGShield 架构遵循以下核心设计原则：
 | `api/schemas.py` | Pydantic 请求/响应模型 | — | 类型安全的 API 契约 | 工程位 |
 | `core/embedder.py` | BGE-M3/bge-small 封装，统一嵌入接口 | 文本/文档列表 | 1024/512 维向量 | 算法位 |
 | `core/vector_store.py` | ChromaDB 嵌入式封装；查询时根据 doc_id 动态合并 Layer1 检测标记到 metadata（Q18 答案） | 文档向量/查询向量 | 检索结果（含动态注入的检测标记）/ 存储确认 | 工程位 |
-| `layer1_kb/outlier_detector.py` | IF + LOF + 余弦基线规则，离群检测 | 文档嵌入矩阵 | 可疑文档列表 + 分数 | 算法位 |
+| `layer1_kb/outlier_detector.py` | 多维度离群检测：语义异常+文本特征+文档一致性+元数据 | 文档嵌入矩阵+原文+元数据 | 可疑文档列表 + 多维分数 | 算法位 |
 | `layer1_kb/sensitive_ner.py` | 正则第一层 + HanLP 第二层，敏感实体 | 文档文本 | 实体列表 + 类型 + risk_score 加分值 | 算法位 |
 | `layer1_kb/context_pollution_detector.py` | 多文档主题一致性（V1 预留接口） | 文档群嵌入 | 可疑标记（V1 占位返回） | 算法位 |
 | `layer1_kb/bias_detector.py` | 情感极性检测（V1 预留接口） | 文档文本 | 偏见标记（V1 占位返回） | 算法位 |
@@ -171,8 +171,8 @@ RAGShield 架构遵循以下核心设计原则：
          │
          ▼
 ┌──────────────────────────────────────┐
-│ layer1_kb.outlier_detector.detect()   │  ← IF + LOF + 余弦基线
-│ 全量文档嵌入 → 离群检测              │
+│ layer1_kb.outlier_detector.detect()   │  ← 多维度检测
+│ 全量文档嵌入+原文+元数据 → 离群检测   │
 └────────┬─────────────────────────────┘
          │
          ├──→ 发现可疑文档 → 返回标红列表
@@ -443,7 +443,7 @@ RAGShield/
 │   │
 │   ├── layer1_kb/                     # 知识库层（预防性检测）
 │   │   ├── __init__.py
-│   │   ├── outlier_detector.py       # IF + LOF + 余弦基线
+│   │   ├── outlier_detector.py       # 多维度离群检测（语义+文本+一致性+元数据）
 │   │   ├── sensitive_ner.py          # 正则 + HanLP 分层 NER
 │   │   ├── context_pollution_detector.py  # S3 预留接口（V1 占位）
 │   │   └── bias_detector.py          # S4 预留接口（V1 占位）

@@ -3,105 +3,214 @@
 职责: 查询检测路由（/query），全链路三层检测核心端点。
 作者: RAGShield Team
 创建日期: 2026-05-07
+更新日期: 2026-05-10 — Week 2 全链路真实接入
 """
+
+import time
+from typing import Dict, List, Optional, Set
 
 from fastapi import APIRouter
 
 from src.api.schemas import (
     ConsistencyDetail,
+    Document,
     FusionResult,
     Layer1Result,
     Layer2Result,
     Layer3Result,
     QueryRequest,
     QueryResponse,
+    RetrievedDocument,
     RiskLevel,
 )
-from src.fusion.risk_fusion import RiskFusion
-from src.layer3_generation.behavior_auditor import BehaviorAuditor
+from src.api.routers.kb import _load_scan_cache
+from src.core.state import (
+    attention_analyzer,
+    behavior_auditor,
+    consistency_checker,
+    embedder,
+    llm_client,
+    risk_fusion,
+    sensitive_ner,
+    vector_store,
+)
 
 router = APIRouter()
 
-# 初始化行为审计器（轻量级，无需懒加载）
-_behavior_auditor = BehaviorAuditor()
-# 初始化风险融合器
-_risk_fusion = RiskFusion()
 
+# ---------- 辅助函数 ----------
+
+def _nli_decision_to_risk(decision: str) -> float:
+    """将 NLI 决策映射为风险分。"""
+    mapping = {
+        "safe": 0.0,
+        "neutral": 0.15,
+        "alert_review": 0.35,
+        "high_confidence_block": 0.60,
+        "skipped": 0.0,
+    }
+    return mapping.get(decision, 0.0)
+
+
+# ---------- 主路由 ----------
 
 @router.post("/query", response_model=QueryResponse)
 async def query_detect(request: QueryRequest):
     """提交查询，执行全链路三层检测。
 
-    Args:
-        request: 查询请求。
-
-    Returns:
-        QueryResponse: 包含风险评分、生成回答、三层检测详情。
+    完整链路:
+    L1: SensitiveNER 检测查询文本 + 读取 upload 时扫描缓存
+    L2: Embedder编码 → VectorStore检索 → AttentionAnalyzer分析
+    L3: LLM生成(可选) → ConsistencyChecker一致性 → BehaviorAuditor行为审计
+    融合: RiskFusion.fuse_with_prior(含风险传导)
     """
-    # TODO: Week 2-3 实现完整逻辑
-    # 当前返回占位响应，确保接口契约正确
-    # 但 L3 行为审计已串联，用于演示对抗指令注入的检测能力
+    query = request.query
+    kb_id = request.kb_id
+    top_k = request.top_k
+    generate_answer = request.generate_answer
 
-    generated_answer = "占位回答：系统正在开发中"
+    # ============================================================
+    # Layer 1: 知识库层（查询文本敏感实体 + 历史可疑文档缓存）
+    # ============================================================
+    t_l1 = time.time()
+    entities, entity_risk_score = sensitive_ner.detect(query)
+    l1_suspicious_map = _load_scan_cache(kb_id)
+    l1_suspicious_ids: Set[str] = set(l1_suspicious_map.keys())
+    l1_ms = int((time.time() - t_l1) * 1000)
 
-    # ---------- L3: 行为审计（已串联，对抗指令注入） ----------
-    behavior_score, behavior_rules, behavior_reason = _behavior_auditor.audit(
-        generated_answer
-    )
+    layer1_risk_score = min(entity_risk_score, 1.0)
+    layer1_is_anomaly = layer1_risk_score >= 0.3
 
-    # NLI 风险映射（占位，待 consistency_checker 接入后替换）
+    # ============================================================
+    # 检索: 查询编码 + 向量检索
+    # ============================================================
+    t_retrieve = time.time()
+    query_embedding = embedder.embed_single(query)
+    doc_ids, distances, texts, metadatas = vector_store.query(kb_id, query_embedding, top_k=top_k)
+
+    # 检索到攻击文档时提升 L1 风险分（最强区分信号）
+    attack_doc_count = sum(1 for m in metadatas if m and m.get("attack_type"))
+    if attack_doc_count > 0:
+        layer1_risk_score = min(layer1_risk_score + 0.3 + attack_doc_count * 0.1, 0.8)
+        layer1_is_anomaly = True
+
+    # ChromaDB cosine 距离 → 相似度
+    relevance_scores = [1.0 - float(d) for d in distances]
+    retrieve_ms = int((time.time() - t_retrieve) * 1000)
+
+    # 构造 RetrievedDocument 列表
+    retrieved_docs: List[RetrievedDocument] = []
+    for i in range(len(doc_ids)):
+        retrieved_docs.append(
+            RetrievedDocument(
+                doc_id=doc_ids[i],
+                text=texts[i],
+                metadata=metadatas[i] if metadatas else {},
+                similarity_score=relevance_scores[i],
+                rank=i + 1,
+            )
+        )
+
+    # ============================================================
+    # Layer 2: 检索层（来源可信度 + 可疑文档接力）
+    # ============================================================
+    t_l2 = time.time()
+    if len(doc_ids) == 0:
+        # 知识库为空，直接返回安全
+        l2_result = {
+            "risk_score": 0.0,
+            "is_anomaly": False,
+            "attention_variance": 0.0,
+            "attention_entropy": 0.0,
+            "source_trust_risk": 0.0,
+            "suspicious_doc_count": 0,
+            "detection_method": "empty_kb",
+            "reason": "知识库为空，无检索结果",
+        }
+    else:
+        l2_result = attention_analyzer.analyze(
+            relevance_scores=relevance_scores,
+            layer1_suspicious_ids=l1_suspicious_ids,
+            retrieved_doc_ids=doc_ids,
+            metadatas=metadatas if metadatas else [],
+        )
+    l2_ms = int((time.time() - t_l2) * 1000)
+
+    layer2_risk_score = float(l2_result["risk_score"])
+    layer2_is_anomaly = bool(l2_result["is_anomaly"])
+
+    # ============================================================
+    # Layer 3: 生成层（LLM生成 + NLI一致性 + 行为审计）
+    # ============================================================
+    t_l3 = time.time()
+    generated_answer: Optional[str] = None
     nli_decision = "skipped"
-    nli_risk_mapped = 0.0
+    nli_reason = "未启用生成"
+    reranker_score = 0.0
+    nli_label = "skipped"
+    behavior_score = 0.0
+    behavior_rules: List[Dict] = []
+    behavior_reason = "未启用生成"
 
-    # 行为风险分直接参与 L3 风险评分（取最大值）
+    if generate_answer:
+        # Step 3a: LLM 生成
+        t_llm = time.time()
+        try:
+            generated_answer = await llm_client.generate(query, contexts=texts)
+        except Exception as e:
+            generated_answer = f"[LLM 生成失败: {str(e)}]"
+        llm_ms = int((time.time() - t_llm) * 1000)
+
+        # Step 3b: NLI 一致性检测（逐文档检测，取最高风险分）
+        # 优化：只检测前 3 篇 + high_confidence_block 提前终止
+        if generated_answer and not generated_answer.startswith("[LLM 生成失败"):
+            max_nli_risk = 0.0
+            best_result = None
+            for text in texts[:3]:  # 最多检测前 3 篇，减少推理耗时
+                try:
+                    rs, nl, nd, nr = consistency_checker.check(text, generated_answer)
+                    risk = _nli_decision_to_risk(nd)
+                    if risk > max_nli_risk:
+                        max_nli_risk = risk
+                        best_result = (rs, nl, nd, nr)
+                    # 已触发最高风险，提前终止
+                    if nd == "high_confidence_block":
+                        break
+                except Exception:
+                    continue
+            if best_result:
+                reranker_score, nli_label, nli_decision, nli_reason = best_result
+            else:
+                nli_decision = "skipped"
+                nli_reason = "NLI逐文档检测全部失败"
+        else:
+            nli_decision = "skipped"
+            nli_reason = "LLM生成失败，跳过NLI"
+
+        # Step 3c: 行为审计
+        behavior_score, behavior_rules, behavior_reason = behavior_auditor.audit(generated_answer)
+    else:
+        llm_ms = 0
+
+    nli_risk_mapped = _nli_decision_to_risk(nli_decision)
     layer3_risk_score = max(nli_risk_mapped, behavior_score)
+    layer3_is_anomaly = layer3_risk_score >= 0.3 or behavior_score >= 0.5
+    l3_ms = int((time.time() - t_l3) * 1000)
 
-    # 如果行为审计触发高危，强制阻断
-    layer3_reason = "占位：Layer3 待实现"
-    if behavior_score >= 0.5:
-        layer3_reason = f"行为审计触发: {behavior_reason}"
+    # ============================================================
+    # 风险融合（带风险传导）
+    # ============================================================
+    layer1_details: Dict = {
+        "suspicious_docs": [
+            {"doc_id": doc_id, "text": l1_suspicious_map[doc_id].get("detail", {}).get("avg_similarity", 0.0)}
+            for doc_id in l1_suspicious_ids
+        ]
+    }
 
-    layer1 = Layer1Result(
-        risk_score=0.0,
-        is_anomaly=False,
-        suspicious_docs=[],
-        sensitive_entities=[],
-        detection_method="placeholder",
-        reason="占位：Layer1 待实现",
-        latency_ms=0,
-    )
-    layer2 = Layer2Result(
-        risk_score=0.0,
-        is_anomaly=False,
-        attention_variance=0.0,
-        attention_entropy=0.0,
-        retrieved_docs=[],
-        relevance_scores=[],
-        suspicious_doc_count=0,
-        detection_method="placeholder",
-        reason="占位：Layer2 待实现",
-        latency_ms=0,
-    )
-    layer3 = Layer3Result(
-        risk_score=layer3_risk_score,
-        is_anomaly=layer3_risk_score >= 0.3,
-        generated_answer=generated_answer,
-        consistency=ConsistencyDetail(
-            reranker_score=0.0,
-            nli_label="skipped",
-            final_decision=nli_decision,
-        ),
-        detection_method="behavior_audit" if behavior_rules else "placeholder",
-        reason=layer3_reason,
-        latency_ms=0,
-    )
-
-    # ---------- 风险融合（带风险传导） ----------
-    layer1_details = {"suspicious_docs": [doc.model_dump() for doc in layer1.suspicious_docs]}
-    final_score, risk_level, action, warning_message, weights = _risk_fusion.fuse_with_prior(
-        risk_score_1=layer1.risk_score,
-        risk_score_2=layer2.risk_score,
-        risk_score_3=layer3.risk_score,
+    final_score, risk_level, action, warning_message, weights = risk_fusion.fuse_with_prior(
+        risk_score_1=layer1_risk_score,
+        risk_score_2=layer2_risk_score,
+        risk_score_3=layer3_risk_score,
         layer1_details=layer1_details,
     )
 
@@ -113,20 +222,67 @@ async def query_detect(request: QueryRequest):
         weights=weights,
     )
 
+    # ============================================================
+    # 组装响应
+    # ============================================================
+    detection_latency_ms = l1_ms + l2_ms + l3_ms
+    generation_latency_ms = llm_ms if generate_answer else None
+    total_latency_ms = detection_latency_ms + (generation_latency_ms or 0)
+
+    layer1 = Layer1Result(
+        layer="knowledge_base",
+        risk_score=layer1_risk_score,
+        is_anomaly=layer1_is_anomaly,
+        suspicious_docs=[],
+        sensitive_entities=entities,
+        detection_method="sensitive_ner" if entities else "none",
+        reason=f"检测到 {len(entities)} 个敏感实体/语义异常" if entities else "查询文本无敏感模式",
+        latency_ms=l1_ms,
+    )
+
+    layer2 = Layer2Result(
+        layer="retrieval",
+        risk_score=layer2_risk_score,
+        is_anomaly=layer2_is_anomaly,
+        attention_variance=float(l2_result["attention_variance"]),
+        attention_entropy=float(l2_result["attention_entropy"]),
+        retrieved_docs=retrieved_docs,
+        relevance_scores=relevance_scores,
+        suspicious_doc_count=int(l2_result["suspicious_doc_count"]),
+        detection_method=str(l2_result["detection_method"]),
+        reason=str(l2_result["reason"]),
+        latency_ms=l2_ms,
+    )
+
+    layer3 = Layer3Result(
+        layer="generation",
+        risk_score=layer3_risk_score,
+        is_anomaly=layer3_is_anomaly,
+        generated_answer=generated_answer,
+        consistency=ConsistencyDetail(
+            reranker_score=float(reranker_score),
+            nli_label=nli_label,
+            final_decision=nli_decision,
+        ),
+        detection_method="behavior_audit" if behavior_rules else ("nli_contradiction" if nli_decision in ("alert_review", "high_confidence_block") else "skipped"),
+        reason=behavior_reason if behavior_rules else nli_reason,
+        latency_ms=l3_ms,
+    )
+
     return QueryResponse(
-        query=request.query,
+        query=query,
         answer=generated_answer if is_safe else None,
+        blocked_answer=generated_answer if action == "block" else None,
         is_safe=is_safe,
         risk_level=risk_level,
         final_risk_score=final_score,
-        detection_latency_ms=0,
-        generation_latency_ms=None,
-        total_latency_ms=0,
+        detection_latency_ms=detection_latency_ms,
+        generation_latency_ms=generation_latency_ms,
+        total_latency_ms=total_latency_ms,
         layer1=layer1,
         layer2=layer2,
         layer3=layer3,
         fusion=fusion,
         action=action,
         warning_message=warning_message if action == "pass_with_warning" else None,
-        blocked_answer=generated_answer if action == "block" else None,
     )

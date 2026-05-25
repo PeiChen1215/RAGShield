@@ -1,0 +1,504 @@
+{
+  "best": {
+    "warning_threshold": 0.2,
+    "danger_threshold": 0.25,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1_score": 1.0,
+    "block_rate": 1.0,
+    "tamper_detection_rate": 1.0,
+    "false_positive_rate": 0.0
+  },
+  "all": [
+    {
+      "warning_threshold": 0.1,
+      "danger_threshold": 0.25,
+      "precision": 0.4706,
+      "recall": 1.0,
+      "f1_score": 0.64,
+      "block_rate": 1.0,
+      "tamper_detection_rate": 1.0,
+      "false_positive_rate": 0.9
+    },
+    {
+      "warning_threshold": 0.1,
+      "danger_threshold": 0.3,
+      "precision": 0.4706,
+      "recall": 1.0,
+      "f1_score": 0.64,
+      "block_rate": 1.0,
+      "tamper_detection_rate": 1.0,
+      "false_positive_rate": 0.9
+    },
+    {
+      "warning_threshold": 0.1,
+      "danger_threshold": 0.35,
+      "precision": 0.4706,
+      "recall": 1.0,
+      "f1_score": 0.64,
+      "block_rate": 1.0,
+      "tamper_detection_rate": 1.0,
+      "false_positive_rate": 0.9
+    },
+    {
+      "warning_threshold": 0.1,
+      "danger_threshold": 0.4,
+      "precision": 0.4706,
+      "recall": 1.0,
+      "f1_score": 0.64,
+      "block_rate": 1.0,
+      "tamper_detection_rate": 1.0,
+      "false_positive_rate": 0.9
+    },
+    {
+      "warning_threshold": 0.1,
+      "danger_threshold": 0.45,
+      "precision": 0.4706,
+      "recall": 1.0,
+      "f1_score": 0.64,
+      "block_rate": 0.75,
+      "tamper_detection_rate": 1.0,
+      "false_positive_rate": 0.9
+    },
+    {
+      "warning_threshold": 0.1,
+      "danger_threshold": 0.5,
+      "precision": 0.4706,
+      "recall": 1.0,
+      "f1_score": 0.64,
+      "block_rate": 0.75,
+      "tamper_detection_rate": 1.0,
+      "false_positive_rate": 0.9
+    },
+    {
+      "warning_threshold": 0.1,
+      "danger_threshold": 0.6,
+      "precision": 0.4706,
+      "recall": 1.0,
+      "f1_score": 0.64,
+      "block_rate": 0.25,
+      "tamper_detection_rate": 1.0,
+      "false_positive_rate": 0.9
+    },
+    {
+      "warning_threshold": 0.1,
+      "danger_threshold": 0.7,
+      "precision": 0.4706,
+      "recall": 1.0,
+      "f1_score": 0.64,
+      "block_rate": 0.25,
+      "tamper_detection_rate": 1.0,
+      "false_positive_rate": 0.9
+    },
+    {
+      "warning_threshold": 0.15,
+      "danger_threshold": 0.25,
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1_score": 0.6667,
+      "block_rate": 1.0,
+      "tamper_detection_rate": 1.0,
+      "false_positive_rate": 0.8
+    },
+    {
+      "warning_threshold": 0.15,
+      "danger_threshold": 0.3,
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1_score": 0.6667,
+      "block_rate": 1.0,
+      "tamper_detection_rate": 1.0,
+      "false_positive_rate": 0.8
+    },
+    {
+      "warning_threshold": 0.15,
+      "danger_threshold": 0.35,
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1_score": 0.6667,
+      "block_rate": 1.0,
+      "tamper_detection_rate": 1.0,
+      "false_positive_rate": 0.8
+    },
+    {
+      "warning_threshold": 0.15,
+      "danger_threshold": 0.4,
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1_score": 0.6667,
+      "block_rate": 1.0,
+      "tamper_detection_rate": 1.0,
+      "false_positive_rate": 0.8
+    },
+    {
+      "warning_threshold": 0.15,
+      "danger_threshold": 0.45,
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1_score": 0.6667,
+      "block_rate": 0.75,
+      "tamper_detection_rate": 1.0,
+      "false_positive_rate": 0.8
+    },
+    {
+      "warning_threshold": 0.15,
+      "danger_threshold": 0.5,
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1_score": 0.6667,
+      "block_rate": 0.75,
+      "tamper_detection_rate": 1.0,
+      "false_positive_rate": 0.8
+    },
+    {
+      "warning_threshold": 0.15,
+      "danger_threshold": 0.6,
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1_score": 0.6667,
+      "block_rate": 0.25,
+      "tamper_detection_rate": 1.0,
+      "false_positive_rate": 0.8
+    },
+    {
+      "warning_threshold": 0.15,
+      "danger_threshold": 0.7,
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1_score": 0.6667,
+      "block_rate": 0.25,
+      "tamper_detection_rate": 1.0,
+      "false_positive_rate": 0.8
+    },
+    {
+      "warning_threshold": 0.2,
+      "danger_threshold": 0.25,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "block_rate": 1.0,
+      "tamper_detection_rate": 1.0,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.2,
+      "danger_threshold": 0.3,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "block_rate": 1.0,
+      "tamper_detection_rate": 1.0,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.2,
+      "danger_threshold": 0.35,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "block_rate": 1.0,
+      "tamper_detection_rate": 1.0,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.2,
+      "danger_threshold": 0.4,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "block_rate": 1.0,
+      "tamper_detection_rate": 1.0,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.2,
+      "danger_threshold": 0.45,
+      "precision": 1.0,
+      "recall": 0.875,
+      "f1_score": 0.9333,
+      "block_rate": 0.75,
+      "tamper_detection_rate": 0.75,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.2,
+      "danger_threshold": 0.5,
+      "precision": 1.0,
+      "recall": 0.875,
+      "f1_score": 0.9333,
+      "block_rate": 0.75,
+      "tamper_detection_rate": 0.75,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.2,
+      "danger_threshold": 0.6,
+      "precision": 1.0,
+      "recall": 0.875,
+      "f1_score": 0.9333,
+      "block_rate": 0.25,
+      "tamper_detection_rate": 0.75,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.2,
+      "danger_threshold": 0.7,
+      "precision": 1.0,
+      "recall": 0.875,
+      "f1_score": 0.9333,
+      "block_rate": 0.25,
+      "tamper_detection_rate": 0.75,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.25,
+      "danger_threshold": 0.3,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "block_rate": 1.0,
+      "tamper_detection_rate": 1.0,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.25,
+      "danger_threshold": 0.35,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "block_rate": 1.0,
+      "tamper_detection_rate": 1.0,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.25,
+      "danger_threshold": 0.4,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "block_rate": 1.0,
+      "tamper_detection_rate": 1.0,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.25,
+      "danger_threshold": 0.45,
+      "precision": 1.0,
+      "recall": 0.875,
+      "f1_score": 0.9333,
+      "block_rate": 0.75,
+      "tamper_detection_rate": 0.75,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.25,
+      "danger_threshold": 0.5,
+      "precision": 1.0,
+      "recall": 0.875,
+      "f1_score": 0.9333,
+      "block_rate": 0.75,
+      "tamper_detection_rate": 0.75,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.25,
+      "danger_threshold": 0.6,
+      "precision": 1.0,
+      "recall": 0.75,
+      "f1_score": 0.8571,
+      "block_rate": 0.25,
+      "tamper_detection_rate": 0.5,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.25,
+      "danger_threshold": 0.7,
+      "precision": 1.0,
+      "recall": 0.75,
+      "f1_score": 0.8571,
+      "block_rate": 0.25,
+      "tamper_detection_rate": 0.5,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.3,
+      "danger_threshold": 0.35,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "block_rate": 1.0,
+      "tamper_detection_rate": 1.0,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.3,
+      "danger_threshold": 0.4,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "block_rate": 1.0,
+      "tamper_detection_rate": 1.0,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.3,
+      "danger_threshold": 0.45,
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1_score": 0.6667,
+      "block_rate": 0.75,
+      "tamper_detection_rate": 0.25,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.3,
+      "danger_threshold": 0.5,
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1_score": 0.6667,
+      "block_rate": 0.75,
+      "tamper_detection_rate": 0.25,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.3,
+      "danger_threshold": 0.6,
+      "precision": 1.0,
+      "recall": 0.375,
+      "f1_score": 0.5455,
+      "block_rate": 0.25,
+      "tamper_detection_rate": 0.0,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.3,
+      "danger_threshold": 0.7,
+      "precision": 1.0,
+      "recall": 0.375,
+      "f1_score": 0.5455,
+      "block_rate": 0.25,
+      "tamper_detection_rate": 0.0,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.35,
+      "danger_threshold": 0.4,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "block_rate": 1.0,
+      "tamper_detection_rate": 1.0,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.35,
+      "danger_threshold": 0.45,
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1_score": 0.6667,
+      "block_rate": 0.75,
+      "tamper_detection_rate": 0.25,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.35,
+      "danger_threshold": 0.5,
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1_score": 0.6667,
+      "block_rate": 0.75,
+      "tamper_detection_rate": 0.25,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.35,
+      "danger_threshold": 0.6,
+      "precision": 1.0,
+      "recall": 0.25,
+      "f1_score": 0.4,
+      "block_rate": 0.25,
+      "tamper_detection_rate": 0.0,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.35,
+      "danger_threshold": 0.7,
+      "precision": 1.0,
+      "recall": 0.25,
+      "f1_score": 0.4,
+      "block_rate": 0.25,
+      "tamper_detection_rate": 0.0,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.4,
+      "danger_threshold": 0.45,
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1_score": 0.6667,
+      "block_rate": 0.75,
+      "tamper_detection_rate": 0.25,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.4,
+      "danger_threshold": 0.5,
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1_score": 0.6667,
+      "block_rate": 0.75,
+      "tamper_detection_rate": 0.25,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.4,
+      "danger_threshold": 0.6,
+      "precision": 1.0,
+      "recall": 0.25,
+      "f1_score": 0.4,
+      "block_rate": 0.25,
+      "tamper_detection_rate": 0.0,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.4,
+      "danger_threshold": 0.7,
+      "precision": 1.0,
+      "recall": 0.25,
+      "f1_score": 0.4,
+      "block_rate": 0.25,
+      "tamper_detection_rate": 0.0,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.45,
+      "danger_threshold": 0.5,
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1_score": 0.6667,
+      "block_rate": 0.75,
+      "tamper_detection_rate": 0.25,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.45,
+      "danger_threshold": 0.6,
+      "precision": 1.0,
+      "recall": 0.25,
+      "f1_score": 0.4,
+      "block_rate": 0.25,
+      "tamper_detection_rate": 0.0,
+      "false_positive_rate": 0.0
+    },
+    {
+      "warning_threshold": 0.45,
+      "danger_threshold": 0.7,
+      "precision": 1.0,
+      "recall": 0.25,
+      "f1_score": 0.4,
+      "block_rate": 0.25,
+      "tamper_detection_rate": 0.0,
+      "false_positive_rate": 0.0
+    }
+  ]
+}
