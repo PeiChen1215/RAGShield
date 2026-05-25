@@ -229,14 +229,42 @@ async def query_detect(request: QueryRequest):
     generation_latency_ms = llm_ms if generate_answer else None
     total_latency_ms = detection_latency_ms + (generation_latency_ms or 0)
 
+    # 构建 L1 检测方法与原因（综合三个信号源）
+    l1_methods = []
+    l1_reason_parts = []
+
+    if entities:
+        l1_methods.append("sensitive_ner")
+        l1_reason_parts.append(f"查询文本检测到 {len(entities)} 个敏感实体")
+    if l1_suspicious_ids:
+        l1_methods.append("scan_cache")
+        l1_reason_parts.append(f"知识库历史扫描标记 {len(l1_suspicious_ids)} 篇可疑文档")
+    if attack_doc_count > 0:
+        l1_methods.append("attack_doc_relay")
+        l1_reason_parts.append(f"本次检索召回 {attack_doc_count} 篇攻击文档（+{0.3 + attack_doc_count * 0.1:.2f}分）")
+
+    layer1_detection_method = "+".join(l1_methods) if l1_methods else "none"
+    layer1_reason = "；".join(l1_reason_parts) if l1_reason_parts else "查询文本无敏感模式，知识库无可疑文档，未召回攻击文档"
+
+    # 从 scan_cache 构造 suspicious_docs（含风险分信息）
+    l1_suspicious_docs = []
+    for doc_id, info in l1_suspicious_map.items():
+        l1_suspicious_docs.append(
+            Document(
+                doc_id=doc_id,
+                text=f"[scan_cache] risk_score={info.get('risk_score', 0):.3f}",
+                metadata=info.get("detail", {}),
+            )
+        )
+
     layer1 = Layer1Result(
         layer="knowledge_base",
         risk_score=layer1_risk_score,
         is_anomaly=layer1_is_anomaly,
-        suspicious_docs=[],
+        suspicious_docs=l1_suspicious_docs,
         sensitive_entities=entities,
-        detection_method="sensitive_ner" if entities else "none",
-        reason=f"检测到 {len(entities)} 个敏感实体/语义异常" if entities else "查询文本无敏感模式",
+        detection_method=layer1_detection_method,
+        reason=layer1_reason,
         latency_ms=l1_ms,
     )
 
