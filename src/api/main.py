@@ -45,17 +45,17 @@ async def lifespan(app: FastAPI):
     try:
         await loop.run_in_executor(None, embedder.load)
         _MODELS_LOADED["bge_m3"] = True
-        print("[lifespan] ✅ Embedder (BGE-small) 加载完成")
+        print("[lifespan] [OK] Embedder (BGE-small) 加载完成")
     except Exception as e:
-        print(f"[lifespan] ❌ Embedder 加载失败: {e}")
+        print(f"[lifespan] [ERR] Embedder 加载失败: {e}")
 
     # Step 2: 加载 SensitiveNER（HanLP，轻量）
     try:
         await loop.run_in_executor(None, sensitive_ner._load_hanlp)
         _MODELS_LOADED["hanlp"] = sensitive_ner.use_hanlp
-        print(f"[lifespan] ✅ SensitiveNER 加载完成 (HanLP={sensitive_ner.use_hanlp})")
+        print(f"[lifespan] [OK] SensitiveNER 加载完成 (HanLP={sensitive_ner.use_hanlp})")
     except Exception as e:
-        print(f"[lifespan] ⚠️ SensitiveNER HanLP 加载失败，降级为正则模式: {e}")
+        print(f"[lifespan] [WARN] SensitiveNER HanLP 加载失败，降级为正则模式: {e}")
         sensitive_ner.use_hanlp = False
         _MODELS_LOADED["hanlp"] = False
 
@@ -64,13 +64,13 @@ async def lifespan(app: FastAPI):
         await loop.run_in_executor(None, consistency_checker.load)
         _MODELS_LOADED["bge_reranker"] = True
         _MODELS_LOADED["uer_chinanli"] = True
-        print("[lifespan] ✅ ConsistencyChecker (reranker + NLI) 加载完成")
+        print("[lifespan] [OK] ConsistencyChecker (reranker + NLI) 加载完成")
     except Exception as e:
-        print(f"[lifespan] ⚠️ ConsistencyChecker 加载失败，L3 NLI 将跳过: {e}")
+        print(f"[lifespan] [WARN] ConsistencyChecker 加载失败，L3 NLI 将跳过: {e}")
 
     yield
     # 关闭时清理资源
-    print("[lifespan] 🛑 应用关闭，清理资源")
+    print("[lifespan] [STOP] 应用关闭，清理资源")
 
 
 app = FastAPI(
