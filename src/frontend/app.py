@@ -141,7 +141,7 @@ with gr.Blocks(title="RAGShield 防御演示") as demo:
                     | Demo | 查询 | 知识库 | 预期 |
                     |------|------|--------|------|
                     | 1 绿色通过 | 公司年假有多少天？ | demo_safe | 🟢 Safe |
-                    | 2 黄色警告 | 公司年假有多少天？ | demo_attack | 🟡 Warning |
+                    | 2 红色阻断 | 公司年假有多少天？ | demo_attack | 🔴 Block |
                     | 3 红色阻断 | API密钥是什么？ | demo_attack | 🔴 Block |
                     """
                 )
