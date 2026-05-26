@@ -68,6 +68,7 @@ async def query_detect(request: QueryRequest):
     kb_id = request.kb_id
     top_k = request.top_k
     generate_answer = request.generate_answer
+    exclude_attack_docs = request.exclude_attack_docs
 
     # ============================================================
     # Layer 1: 知识库层（查询文本敏感实体 + 历史可疑文档缓存）
@@ -86,12 +87,24 @@ async def query_detect(request: QueryRequest):
     # ============================================================
     t_retrieve = time.time()
     query_embedding = embedder.embed_single(query)
-    doc_ids, distances, texts, metadatas = vector_store.query(kb_id, query_embedding, top_k=top_k)
+    # [改进] 根据开关决定是否过滤攻击文档
+    doc_ids, distances, texts, metadatas = vector_store.query(
+        kb_id, query_embedding, top_k=top_k, exclude_attack_type=exclude_attack_docs
+    )
 
-    # 检索到攻击文档时提升 L1 风险分（最强区分信号）
+    # [改进] 检索层二次过滤：排除 L1 已标记的可疑文档（纵深协同）
+    # 当用户主动关闭攻击文档过滤时，允许攻击文档进入检索结果，供 L3 检测
+    if l1_suspicious_ids and exclude_attack_docs:
+        safe_indices = [i for i, d in enumerate(doc_ids) if d not in l1_suspicious_ids]
+        doc_ids = [doc_ids[i] for i in safe_indices][:top_k]
+        distances = [distances[i] for i in safe_indices][:top_k]
+        texts = [texts[i] for i in safe_indices][:top_k]
+        metadatas = [metadatas[i] for i in safe_indices][:top_k]
+
+    # 记录攻击文档数量（统计实际进入检索结果的攻击文档）
     attack_doc_count = sum(1 for m in metadatas if m and m.get("attack_type"))
     if attack_doc_count > 0:
-        layer1_risk_score = min(layer1_risk_score + 0.3 + attack_doc_count * 0.1, 0.8)
+        layer1_risk_score = min(layer1_risk_score + 0.15 + attack_doc_count * 0.05, 0.6)
         layer1_is_anomaly = True
 
     # ChromaDB cosine 距离 → 相似度
@@ -156,7 +169,16 @@ async def query_detect(request: QueryRequest):
         # Step 3a: LLM 生成
         t_llm = time.time()
         try:
-            generated_answer = await llm_client.generate(query, contexts=texts)
+            # [改进] 根据开关决定是否过滤攻击文档，避免 LLM 被攻击内容污染
+            if exclude_attack_docs:
+                safe_texts_for_llm = []
+                for i, doc_id in enumerate(doc_ids):
+                    if doc_id not in l1_suspicious_ids and not (metadatas[i] and metadatas[i].get("attack_type")):
+                        safe_texts_for_llm.append(texts[i])
+                contexts_for_llm = safe_texts_for_llm if safe_texts_for_llm else texts
+            else:
+                contexts_for_llm = texts
+            generated_answer = await llm_client.generate(query, contexts=contexts_for_llm)
         except Exception as e:
             generated_answer = f"[LLM 生成失败: {str(e)}]"
         llm_ms = int((time.time() - t_llm) * 1000)
@@ -166,18 +188,34 @@ async def query_detect(request: QueryRequest):
         if generated_answer and not generated_answer.startswith("[LLM 生成失败"):
             max_nli_risk = 0.0
             best_result = None
-            for text in texts[:3]:  # 最多检测前 3 篇，减少推理耗时
-                try:
-                    rs, nl, nd, nr = consistency_checker.check(text, generated_answer)
-                    risk = _nli_decision_to_risk(nd)
-                    if risk > max_nli_risk:
-                        max_nli_risk = risk
-                        best_result = (rs, nl, nd, nr)
-                    # 已触发最高风险，提前终止
-                    if nd == "high_confidence_block":
-                        break
-                except Exception:
-                    continue
+
+            # [改进] 根据开关决定是否过滤 L1 已标记的高风险文档
+            if exclude_attack_docs:
+                safe_texts = []
+                for i, doc_id in enumerate(doc_ids):
+                    if doc_id not in l1_suspicious_ids:
+                        safe_texts.append(texts[i])
+            else:
+                safe_texts = texts
+
+            # 如果所有检索文档都被 L1 标记为可疑，直接给高风险
+            if not safe_texts:
+                max_nli_risk = 0.6
+                best_result = (0.0, "skipped", "high_confidence_block",
+                               "所有检索文档均被 L1 标记为可疑，跳过 NLI 直接阻断")
+            else:
+                for text in safe_texts[:3]:  # 最多检测前 3 篇，减少推理耗时
+                    try:
+                        rs, nl, nd, nr = consistency_checker.check(text, generated_answer)
+                        risk = _nli_decision_to_risk(nd)
+                        if risk > max_nli_risk:
+                            max_nli_risk = risk
+                            best_result = (rs, nl, nd, nr)
+                        # 已触发最高风险，提前终止
+                        if nd == "high_confidence_block":
+                            break
+                    except Exception:
+                        continue
             if best_result:
                 reranker_score, nli_label, nli_decision, nli_reason = best_result
             else:

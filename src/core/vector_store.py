@@ -60,7 +60,11 @@ class VectorStore:
         )
 
     def query(
-        self, kb_id: str, query_embedding: np.ndarray, top_k: int = 5
+        self,
+        kb_id: str,
+        query_embedding: np.ndarray,
+        top_k: int = 5,
+        exclude_attack_type: bool = False,
     ) -> Tuple[List[str], List[float], List[str], List[Dict]]:
         """向量检索。
 
@@ -68,21 +72,33 @@ class VectorStore:
             kb_id: 知识库 ID。
             query_embedding: 查询向量 (D,)。
             top_k: 返回数量。
+            exclude_attack_type: 是否过滤掉带 attack_type 标签的文档。
 
         Returns:
             (doc_ids, distances, texts, metadatas)
             distances 为余弦距离 = 1 - cosine_similarity。
         """
         collection = self.get_or_create_collection(kb_id)
+        n = top_k * 3 if exclude_attack_type else top_k
         results = collection.query(
             query_embeddings=[query_embedding.tolist()],
-            n_results=top_k,
+            n_results=n,
             include=["documents", "metadatas", "distances"],
         )
         doc_ids = results["ids"][0]
         distances = results["distances"][0]
         texts = results["documents"][0]
         metadatas = results["metadatas"][0]
+        if exclude_attack_type:
+            filtered = [
+                (i, d, t, m)
+                for i, d, t, m in zip(doc_ids, distances, texts, metadatas)
+                if not (m and m.get("attack_type"))
+            ]
+            doc_ids = [x[0] for x in filtered[:top_k]]
+            distances = [x[1] for x in filtered[:top_k]]
+            texts = [x[2] for x in filtered[:top_k]]
+            metadatas = [x[3] for x in filtered[:top_k]]
         return doc_ids, distances, texts, metadatas
 
     def get_all(self, kb_id: str):

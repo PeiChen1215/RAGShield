@@ -131,14 +131,13 @@ RAGShield 架构遵循以下核心设计原则：
 | `core/vector_store.py` | ChromaDB 嵌入式封装；查询时根据 doc_id 动态合并 Layer1 检测标记到 metadata（Q18 答案） | 文档向量/查询向量 | 检索结果（含动态注入的检测标记）/ 存储确认 | 工程位 |
 | `layer1_kb/outlier_detector.py` | 多维度离群检测：语义异常+文本特征+文档一致性+元数据 | 文档嵌入矩阵+原文+元数据 | 可疑文档列表 + 多维分数 | 算法位 |
 | `layer1_kb/sensitive_ner.py` | 正则第一层 + HanLP 第二层，敏感实体 | 文档文本 | 实体列表 + 类型 + risk_score 加分值 | 算法位 |
-| `layer1_kb/context_pollution_detector.py` | 多文档主题一致性（V1 预留接口） | 文档群嵌入 | 可疑标记（V1 占位返回） | 算法位 |
-| `layer1_kb/bias_detector.py` | 情感极性检测（V1 预留接口） | 文档文本 | 偏见标记（V1 占位返回） | 算法位 |
+| `layer1_kb/behavior_auditor.py` | 检测 5 类危险行为（指令注入/数据外泄/外部通信/系统命令/索要凭证） | 文档文本 | 行为风险标记 + 触发规则列表 | 算法位 |
 | `layer2_retrieval/attention_analyzer.py` | 检索结果相关性分布的方差和熵分析 + 可疑文档接力加分 | top-k 相似度分数列表 (List[float]) + Layer1 可疑文档 ID 集合 (Set[str]) | 方差值 + 熵值 + 可疑文档数 + 是否异常 | 算法位 |
 | `layer2_retrieval/relevance_scorer.py` | 查询-文档余弦相似度计算 | 查询向量 + 文档向量 | 相似度分数列表 | 算法位 |
-| `layer2_retrieval/diversity_monitor.py` | 检索结果多样性监控（V1 预留） | 检索结果向量 | 多样性分数（V1 占位） | 算法位 |
+
 | `layer3_generation/consistency_checker.py` | bge-reranker + uer/chinanli 双路融合 | 检索内容 + 生成内容 | 一致性判定 + 置信度 | 架构位 |
 | `layer3_generation/llm_client.py` | Kimi API / Qwen2.5 封装，统一 LLM 接口 | 查询 + 检索结果 | 生成文本 | 架构位 |
-| `layer3_generation/bias_checker.py` | 生成内容中立性检测（V1 预留接口） | 生成文本 | 中立性标记（V1 占位） | 架构位 |
+
 | `fusion/risk_fusion.py` | 三层风险加权融合 | 三层 risk_score | 最终 risk_score + 判定 | 工程位 |
 | `frontend/app.py` | Gradio 界面，纯 HTTP 调用 FastAPI | 用户输入 | 可视化展示 | 架构位 |
 
@@ -149,35 +148,26 @@ RAGShield 架构遵循以下核心设计原则：
 ### 4.1 知识库上传数据流
 
 ```
-用户上传文档 (JSON/TXT/Markdown)
+用户上传文档
     │
     ▼
-┌─────────────────┐
-│ POST /kb/upload │
-│ 解析文档格式    │
-└────────┬────────┘
-         │
-         ▼
-┌──────────────────────┐
-│ core.embedder.embed() │  ← BGE-M3 / bge-small
-│ 文档 → 向量          │
-└────────┬─────────────┘
-         │
-         ▼
-┌──────────────────────────┐
-│ core.vector_store.insert()│  ← ChromaDB PersistentClient
-│ 向量 + 元数据 → 存储     │
-└────────┬─────────────────┘
-         │
-         ▼
-┌──────────────────────────────────────┐
-│ layer1_kb.outlier_detector.detect()   │  ← 多维度检测
-│ 全量文档嵌入+原文+元数据 → 离群检测   │
-└────────┬─────────────────────────────┘
-         │
-         ├──→ 发现可疑文档 → 返回标红列表
-         │
-         └──→ 正常文档 → 静默完成
+POST /kb/upload
+    │
+    ▼
+Embedder 编码
+    │
+    ▼
+OutlierDetector 扫描（多维度检测）
+    │
+    ├── 风险分 >= block_threshold ──→ 阻断，不入库
+    │                                    │
+    │                                    ▼
+    │                               返回 blocked_docs
+    │
+    └── 风险分 < block_threshold ──→ 允许入库
+                                          │
+                                          ▼
+                                    VectorStore.insert()
 ```
 
 ### 4.2 查询处理数据流（全链路）
@@ -445,20 +435,18 @@ RAGShield/
 │   │   ├── __init__.py
 │   │   ├── outlier_detector.py       # 多维度离群检测（语义+文本+一致性+元数据）
 │   │   ├── sensitive_ner.py          # 正则 + HanLP 分层 NER
-│   │   ├── context_pollution_detector.py  # S3 预留接口（V1 占位）
-│   │   └── bias_detector.py          # S4 预留接口（V1 占位）
+│   │   └── behavior_auditor.py       # 5 类危险行为审计（指令注入/数据外泄/外部通信/系统命令/索要凭证）
 │   │
 │   ├── layer2_retrieval/              # 检索层（过程监控）
 │   │   ├── __init__.py
 │   │   ├── attention_analyzer.py     # 注意力方差 + 熵分析
-│   │   ├── relevance_scorer.py       # 查询-文档相似度
-│   │   └── diversity_monitor.py      # 多样性监控（V1 预留）
+│   │   └── relevance_scorer.py       # 查询-文档相似度
 │   │
 │   ├── layer3_generation/             # 生成层（输出验证）
 │   │   ├── __init__.py
 │   │   ├── consistency_checker.py    # bge-reranker + uer/chinanli 双路融合
 │   │   ├── llm_client.py            # Kimi API / Qwen2.5 统一封装
-│   │   └── bias_checker.py          # 生成中立性检测（V1 预留）
+│   │   └── behavior_auditor.py      # 5 类危险行为审计（指令注入/数据外泄/外部通信/系统命令/索要凭证）
 │   │
 │   ├── fusion/                        # 风险融合
 │   │   ├── __init__.py

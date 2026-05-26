@@ -52,7 +52,8 @@
 | **核心层** | 向量库 | `src/core/vector_store.py` | ✅ 已完成 | ChromaDB 嵌入式，cosine space |
 | **API 层** | Schema 模型 | `src/api/schemas.py` | ✅ 已完成 | Pydantic v2 请求/响应契约 |
 | **API 层** | 主入口 | `src/api/main.py` | ✅ 已完成 | FastAPI 入口 + /health + lifespan 预加载 |
-| **前端** | Gradio 界面 | `src/frontend/app.py` | ✅ **已修复** | 颜色按 risk_level 判断，timeout 120s |
+| **API 层** | kb.py upload 阻断 | `src/api/routers/kb.py` | ✅ 已完成 | block_threshold + _convert_numpy + 先扫描后入库 |
+| **前端** | Gradio 界面 | `src/frontend/app.py` | ✅ **已修复** | Tab 布局：查询检测 + 知识库上传，支持阻断展示 |
 
 ### 基础设施
 
@@ -131,7 +132,7 @@
 |------|------|--------|------|------|
 | ** Docker 镜像构建** | 新增 `Dockerfile` | 🟢 P2 | ⏳ 未开始 | 需预装模型 + ChromaDB 持久化路径 |
 | ** 导出离线镜像** | `ragshield.tar.gz` | 🟢 P2 | ⏳ 未开始 | 依赖 Dockerfile 构建成功 |
-| ** README.md 编写** | `README.md` | 🟢 P2 | ⏳ 未开始 | 对外展示用，含架构图 + 快速启动 |
+| ** README.md 编写** | `README.md` | 🟢 P2 | ✅ 已完成 | 对外展示用，含架构图 + 快速启动 |
 | ** 答辩 PPT/讲稿** | 新增 `presentations/` | 🟢 P2 | ⏳ 未开始 | 问题→方案→技术→评测→演示 |
 
 **Week 4 完成标准**：
@@ -191,6 +192,8 @@
 | 2026-05-12 | Kimi Code | Week 3 评测体系：evaluate.py + threshold_sweep.py + weight_ablation.py + seed_data.py 完成 |
 | 2026-05-20 | Kimi Code | L1 语义检测重大重构：多维度检测（语义+文本+一致性+元数据），检出率 0%→100% |
 | 2026-05-25 | Kimi Code | 数据规模扩展：50→100 正常文档，8→25 攻击文档，18→47 评测查询；延迟优化 P95 70s→27.6s；文档全面更新 |
+| 2026-05-26 | Kimi Code | 上传阻断功能：block_threshold + 前端上传 Tab + _convert_numpy 修复 + 全链路测试通过 |
+| 2026-05-26 | Kimi Code | 检索层物理隔离开关 `exclude_attack_docs` + L1 metadata_score 强化 0.5→0.7 + behavior_auditor 误报修复 + 前端 Checkbox |
 
 ---
 

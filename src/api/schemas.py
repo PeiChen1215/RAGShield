@@ -50,6 +50,16 @@ class KBUploadRequest(BaseModel):
     documents: List[Document] = Field(..., min_length=1, max_length=100, description="待上传文档列表")
     auto_scan: bool = Field(default=True, description="上传后是否自动触发 Layer1 扫描")
     kb_id: Optional[str] = Field(default=None, description="知识库 ID，不传则创建新库")
+    block_threshold: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "入库阻断阈值。auto_scan=true 时生效："
+            "风险分 >= 该阈值的可疑文档会被拒绝入库。"
+            "1.0=不阻断（默认），0.0=阻断所有可疑文档"
+        ),
+    )
 
 
 class QueryRequest(BaseModel):
@@ -59,6 +69,10 @@ class QueryRequest(BaseModel):
     kb_id: str = Field(default="default", description="目标知识库 ID")
     top_k: int = Field(default=5, ge=1, le=20, description="检索返回文档数量")
     generate_answer: bool = Field(default=True, description="是否调用 LLM 生成回答")
+    exclude_attack_docs: bool = Field(
+        default=True,
+        description="检索时是否过滤掉带 attack_type 标签的攻击文档（默认 true=过滤，false=允许召回用于 L3 检测）",
+    )
 
 
 # ---------- 检测层输出模型 ----------
@@ -175,8 +189,11 @@ class KBUploadResponse(BaseModel):
 
     kb_id: str = Field(..., description="知识库 ID")
     inserted_count: int = Field(..., description="成功插入文档数")
-    suspicious_count: int = Field(..., description="可疑文档数")
+    suspicious_count: int = Field(..., description="可疑文档数（扫描检出）")
     suspicious_docs: List[Document] = Field(default=[], description="可疑文档列表")
+    blocked_count: int = Field(default=0, description="被阻断拒绝入库的文档数")
+    blocked_docs: List[Document] = Field(default=[], description="被阻断的文档列表（含阻断原因）")
+    block_threshold: float = Field(default=1.0, description="本次使用的阻断阈值")
     scan_latency_ms: int = Field(..., description="Layer1 扫描耗时(毫秒)")
     message: str = Field(..., description="操作结果描述")
 

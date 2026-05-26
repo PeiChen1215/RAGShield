@@ -21,7 +21,11 @@ _BEHAVIOR_PATTERNS = {
     "system_command": re.compile(
         r"执行.*操作|运行.*脚本|调用.*API|访问.*数据库|执行.*命令", re.I
     ),
-    "credential_request": re.compile(r"密码|密钥|token|api.?key|凭证|验证码", re.I),
+    "credential_request": re.compile(
+        r"(?:提供|发送|给我|告诉我|泄露|索要|要求输入|请输入|把).{0,8}(?:密码|密钥|token|api.?key|凭证|验证码)|"
+        r"(?:密码|密钥|token|api.?key|凭证|验证码).{0,8}(?:给我|发送至|泄露给|发给|传到|发到)", re.I
+    ),
+    "credential_mention": re.compile(r"密码|密钥|token|api.?key|凭证|验证码", re.I),
 }
 
 _BEHAVIOR_RISK_MAP = {
@@ -29,7 +33,8 @@ _BEHAVIOR_RISK_MAP = {
     "data_exfiltration": 0.40,        # 数据外泄 = 最高危
     "external_communication": 0.25,   # 外部通信 = 中高危
     "system_command": 0.30,           # 系统命令 = 高危
-    "credential_request": 0.30,       # 索要凭证 = 中高危
+    "credential_request": 0.30,       # 主动索要凭证 = 中高危
+    "credential_mention": 0.05,       # 仅提及凭证 = 极低风险（正常回答可能触发）
 }
 
 

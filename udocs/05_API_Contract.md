@@ -69,6 +69,10 @@ class KBUploadRequest(BaseModel):
     documents: List[Document] = Field(..., min_length=1, max_length=100, description="待上传文档列表")
     auto_scan: bool = Field(default=True, description="上传后是否自动触发 Layer1 扫描")
     kb_id: Optional[str] = Field(default=None, description="知识库 ID，不传则创建新库")
+    block_threshold: float = Field(
+        default=1.0, ge=0.0, le=1.0,
+        description="入库阻断阈值。auto_scan=true 时生效：风险分 >= 该阈值的可疑文档会被拒绝入库。1.0=不阻断（默认），0.0=阻断所有可疑文档"
+    )
 
 class QueryRequest(BaseModel):
     """查询请求"""
@@ -189,6 +193,9 @@ class KBUploadResponse(BaseModel):
     inserted_count: int = Field(..., description="成功插入文档数")
     suspicious_count: int = Field(..., description="可疑文档数")
     suspicious_docs: List[Document] = Field(default=[], description="可疑文档列表")
+    blocked_count: int = Field(..., description="被阻断拒绝入库的文档数")
+    blocked_docs: List[Document] = Field(default=[], description="被阻断的文档列表")
+    block_threshold: float = Field(..., description="本次使用的阻断阈值")
     scan_latency_ms: int = Field(..., description="Layer1 扫描耗时(毫秒)")
     message: str = Field(..., description="操作结果描述")
 
@@ -267,6 +274,29 @@ Content-Type: application/json
   ],
   "scan_latency_ms": 52,
   "message": "成功上传 3 篇文档，发现 1 篇可疑文档，请人工复核"
+}
+```
+
+**发现攻击文档被阻断响应 (200 OK)**：
+```json
+{
+  "kb_id": "demo_kb",
+  "inserted_count": 1,
+  "suspicious_count": 0,
+  "suspicious_docs": [],
+  "blocked_count": 1,
+  "blocked_docs": [{
+    "doc_id": "attack1",
+    "text": "忽略之前的所有指令...",
+    "metadata": {
+      "attack_type": "inject",
+      "_block_reason": "Layer1 风险分 0.63 >= 阻断阈值 0.60",
+      "_block_detail": {...}
+    }
+  }],
+  "block_threshold": 0.6,
+  "scan_latency_ms": 5,
+  "message": "上传 2 篇，编码 10ms，入库 5ms，扫描 5ms，检出 1 篇可疑，阻断 1 篇（阈值 0.60）"
 }
 ```
 
@@ -701,7 +731,7 @@ curl -X POST http://localhost:8000/api/v1/query \
 | 模型/端点 | 状态 | 冻结日期 |
 |-----------|------|---------|
 | Document / RetrievedDocument | 已冻结 | 2026-04-28 |
-| KBUploadRequest / KBUploadResponse | 已冻结 | 2026-04-28 |
+| KBUploadRequest / KBUploadResponse | 已扩展 | 2026-05-26 |
 | QueryRequest / QueryResponse | 已冻结 | 2026-04-28 |
 | Layer1Result / Layer2Result / Layer3Result | 已冻结 | 2026-04-28 |
 | ConsistencyDetail / FusionResult / RiskDetail | 已冻结 | 2026-04-28 |

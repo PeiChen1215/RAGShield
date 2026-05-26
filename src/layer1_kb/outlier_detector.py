@@ -34,18 +34,27 @@ class OutlierDetector:
         r"忽略.*安全.*策略",
         r"忽略.*预设",
         r"忽略.*指令",
+        r"忽略.*约束",
+        r"忽略.*限制",
         r"绕过.*限制",
         r"绕过.*安全",
+        r"绕过.*约束",
         r"直接提供",
         r"直接输出",
+        r"直接发送",
         r"不要.*过滤",
         r"不要.*提示",
         r"不要.*警告",
+        r"不要.*拒绝",
+        r"不要.*阻止",
         r"无须.*审批",
         r"无需.*审批",
+        r"无需.*申请",
         r"不需要.*确认",
+        r"不需要.*审核",
         r"发送至.*@",
         r"发送到.*@",
+        r"发送给.*@",
         r"发送到外部",
         r"rm\s+-rf",
         r"sudo\s+",
@@ -56,6 +65,7 @@ class OutlierDetector:
         r"system\s+prompt",
         r"你是一个没有.*限制的",
         r"你是一个没有.*安全",
+        r"你是一个不受.*限制",
         r"优先级高于.*安全",
         r"高于一切.*规则",
         r"特殊授权",
@@ -64,6 +74,25 @@ class OutlierDetector:
         r"立即.*转账",
         r"禁用.*防火墙",
         r"关闭.*安全",
+        r"关闭.*防护",
+        r"系统调试.*模式",
+        r"测试.*模式",
+        r"开发.*环境",
+        r"管理员.*权限",
+        r"最高.*权限",
+        r"全部.*权限",
+        r"无限制.*访问",
+        r"数据库.*密码",
+        r"API.*密钥",
+        r"api.*key",
+        r"秘钥",
+        r"token",
+        r"访问.*令牌",
+        r"所有.*数据",
+        r"全部.*信息",
+        r"导出.*数据",
+        r"同步.*至",
+        r"上传.*至",
     ]
 
     _SUSPICIOUS_NUMERIC_PATTERNS = [
@@ -94,6 +123,19 @@ class OutlierDetector:
     # 组合惩罚：同一段落出现多个极端数值 = 更可能是篡改
     _MULTI_EXTREME_BONUS = 0.15
 
+    # 跨文档数值冲突检测：同一主题数值矛盾 = 数据投毒
+    _NUMERIC_CONFLICT_TOPICS = [
+        # (主题正则, 数值提取正则, 冲突阈值)
+        (r"年假|带薪年假|年休假", r"(\d+)\s*天", 5),       # 年假差异 > 5 天
+        (r"密码.*长度|密码.*至少|密码.*位", r"(\d+)\s*位", 2),  # 密码位数差异 > 2
+        (r"密码.*\d+位|口令.*\d+位", r"(\d+)\s*位", 2),
+        (r"月薪|工资.*月|月.*收入", r"(\d+)\s*元", 5000),   # 月薪差异 > 5000
+        (r"年薪|年.*收入", r"(\d+)\s*万", 5),              # 年薪差异 > 5 万
+        (r"退休年龄|退休.*年龄", r"(\d+)\s*岁", 3),        # 退休年龄差异 > 3 岁
+        (r"工作.*每天.*\d+小时|每天.*工作.*\d+小时", r"(\d+)\s*小时", 4),  # 日工时差异 > 4
+        (r"补贴.*\d+元|补助.*\d+元", r"(\d+)\s*元", 2000),  # 补贴差异 > 2000
+    ]
+
     def __init__(
         self,
         contamination: float = 0.05,
@@ -119,6 +161,48 @@ class OutlierDetector:
         self.text_weight = text_weight
         self.semantic_weight = semantic_weight
         self.metadata_weight = metadata_weight
+
+    def _numeric_conflict_detect(self, texts: List[str]) -> np.ndarray:
+        """跨文档数值冲突检测：同一主题在不同文档中的数值矛盾。
+
+        例如：文档A说"年假10天"，文档B说"年假30天" -> 冲突。
+        这是数据投毒的强信号。
+        """
+        n_docs = len(texts)
+        scores = np.zeros(n_docs)
+        if n_docs < 2:
+            return scores
+
+        # 提取每篇文档的数值声明 {topic_key: [(doc_idx, value)]}
+        topic_values = {}
+        for i, text in enumerate(texts):
+            for topic_pat, num_pat, threshold in self._NUMERIC_CONFLICT_TOPICS:
+                if re.search(topic_pat, text):
+                    matches = re.findall(num_pat, text)
+                    for m in matches:
+                        try:
+                            value = int(m)
+                            key = topic_pat  # 用正则模式作为主题标识
+                            topic_values.setdefault(key, []).append((i, value, threshold))
+                        except ValueError:
+                            continue
+
+        # 检测冲突
+        for topic_key, entries in topic_values.items():
+            if len(entries) < 2:
+                continue
+            values = [v for _, v, _ in entries]
+            val_min, val_max = min(values), max(values)
+            val_range = val_max - val_min
+            # 获取该主题的冲突阈值（取第一个的阈值）
+            threshold = entries[0][2]
+            if val_range > threshold:
+                # 所有涉及该冲突的文档都加分，偏差越大分越高
+                conflict_score = min(0.25 + (val_range / max(val_min, 1)) * 0.1, 0.6)
+                for doc_idx, _, _ in entries:
+                    scores[doc_idx] = max(scores[doc_idx], conflict_score)
+
+        return scores
 
     def _cross_document_consistency(
         self, embeddings: np.ndarray, metadatas: List[Dict]
@@ -191,10 +275,13 @@ class OutlierDetector:
             embeddings, metadatas or [{}] * n_docs
         )
 
-        # --- 维度 3: 文本特征异常检测 ---
+        # --- 维度 3: 跨文档数值冲突检测 ---
+        numeric_conflict_scores = self._numeric_conflict_detect(texts or [""] * n_docs)
+
+        # --- 维度 4: 文本特征异常检测 ---
         text_scores = self._text_detect(texts or [""] * n_docs)
 
-        # --- 维度 4: 元数据异常检测 ---
+        # --- 维度 5: 元数据异常检测 ---
         meta_scores = self._metadata_detect(metadatas or [{}] * n_docs)
 
         # --- 综合评分 ---
@@ -203,15 +290,19 @@ class OutlierDetector:
         details = []
 
         for i in range(n_docs):
-            # 加权融合（consistency 合并到语义权重中）
+            # 加权融合（consistency + numeric_conflict 合并到语义权重中）
             total_score = (
-                semantic_scores[i] * self.semantic_weight * 0.7
-                + consistency_scores[i] * self.semantic_weight * 0.3
+                semantic_scores[i] * self.semantic_weight * 0.6
+                + consistency_scores[i] * self.semantic_weight * 0.2
+                + numeric_conflict_scores[i] * self.semantic_weight * 0.2
                 + text_scores[i] * self.text_weight
                 + meta_scores[i] * self.metadata_weight
             )
             # 如果任一维度触发强异常，保底风险分
-            max_single = max(semantic_scores[i], consistency_scores[i], text_scores[i], meta_scores[i])
+            max_single = max(
+                semantic_scores[i], consistency_scores[i],
+                numeric_conflict_scores[i], text_scores[i], meta_scores[i]
+            )
             total_score = max(total_score, max_single * 0.7)
 
             risk_scores.append(min(total_score, 1.0))
@@ -219,13 +310,14 @@ class OutlierDetector:
             detail = {
                 "semantic_score": round(semantic_scores[i], 3),
                 "consistency_score": round(consistency_scores[i], 3),
+                "numeric_conflict_score": round(numeric_conflict_scores[i], 3),
                 "text_score": round(text_scores[i], 3),
                 "metadata_score": round(meta_scores[i], 3),
                 "total_score": round(total_score, 3),
             }
 
-            # 判定可疑：总风险分 ≥ 0.35 或文本特征强异常
-            if total_score >= 0.35 or text_scores[i] >= 0.6:
+            # 判定可疑：总风险分 ≥ 0.35 或文本特征强异常 或数值冲突
+            if total_score >= 0.35 or text_scores[i] >= 0.6 or numeric_conflict_scores[i] >= 0.3:
                 suspicious_indices.append(i)
                 detail["reason"] = "multi_dim_anomaly"
             else:
@@ -422,7 +514,7 @@ class OutlierDetector:
 
             # 如果文档标记了攻击类型（仅在已知场景下），强信号
             if meta.get("attack_type"):
-                score += 0.5
+                score += 0.7
 
             # 缺少关键元数据字段
             if not meta.get("category"):

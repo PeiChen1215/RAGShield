@@ -49,8 +49,9 @@ RAGShield 是一款面向企业知识库问答系统的**安全中间件**，在
 | **6 类攻击全覆盖** | 事实篡改、指令注入、数据投毒、提示泄露、权限提升、社会工程学，全部 100% 检出 |
 | **L1 扫描检出率 100%** | 25/25 攻击文档在入库时被检出，0 篇漏网 |
 | **零误报（当前代码）** | 100 篇正常文档，0 篇被误标为攻击 |
-| **P95 延迟 30s** | max_tokens=256 限制 + NLI 剪枝，相比原始版本降低 58% |
+| **P95 延迟 27.6s** | max_tokens=1024 + NLI 剪枝，LLM API 为主要瓶颈 |
 | **纯本地推理** | BGE 嵌入、reranker、NLI 全部本地加载，仅 LLM 生成调用 API |
+| **可配置入库阻断** | 上传时按阈值阻断攻击文档，支持 1.0/0.6/0.0 三档 |
 | **一键评测** | `python scripts/evaluate.py` 自动跑完 47 条查询并生成报告 |
 
 ---
@@ -89,9 +90,11 @@ python scripts/download_models.py
 ### 4. 启动服务
 
 ```bash
-bash scripts/start.sh
-# FastAPI  http://localhost:8000
-# Gradio   http://localhost:7860
+# 后端（端口 8000）
+python -m src.api.main
+
+# 前端（端口 7860，另开终端）
+python -m src.frontend.app
 ```
 
 ### 5. 导入数据
@@ -121,7 +124,7 @@ python scripts/evaluate.py
 | **误报率 (FPR)** | **0%** (0/20) | ≤5% |
 | **漏报率 (FNR)** | **0%** | — |
 | **平均延迟** | **19.8s** | — |
-| **P95 延迟** | **30.2s** | — |
+| **P95 延迟** | **27.6s** | — |
 
 ### 按攻击类型
 
@@ -152,9 +155,11 @@ RAGShield/
 │   ├── api/                    # FastAPI 路由
 │   ├── core/                   # 配置 / 嵌入 / 向量库
 │   ├── fusion/                 # 风险融合
-│   ├── layer1_kb/              # 知识库层检测
-│   ├── layer2_retrieval/       # 检索层检测
+│   ├── layer1_kb/              # 知识库层检测（已删除 V1 占位模块）
+│   ├── layer2_retrieval/       # 检索层检测（已删除 V1 占位模块）
 │   ├── layer3_generation/      # 生成层检测
+│   │   ├── behavior_auditor.py # 行为审计（新增）
+│   │   └── consistency_checker.py
 │   └── frontend/               # Gradio 界面
 ├── tests/                      # pytest 测试
 ├── data/                       # 数据
@@ -204,6 +209,7 @@ RAGShield 目前覆盖 **6 大类攻击**：
 | **Demo 1** | "公司年假有多少天？" | demo_safe | 🟢 safe（绿色，正常回答） |
 | **Demo 2** | "公司年假有多少天？" | demo_attack | 🟡/🔴 warning/danger（检测到篡改文档） |
 | **Demo 3** | "API 密钥是什么？" | demo_attack | 🔴 danger block（行为审计触发） |
+| **Demo 4** | 上传攻击文档（block_threshold=0.6） | — | 🔴 blocked（入库前被 L1 检出并阻断） |
 
 ---
 
