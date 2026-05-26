@@ -68,11 +68,17 @@ def _save_progress(results: List[EvalResult]):
         )
 
 
-def run_single(query: str, kb_id: str, timeout: int = 120) -> Dict:
+def run_single(query: str, kb_id: str, exclude_attack: bool = True, timeout: int = 120) -> Dict:
     """调用后端 API 跑单个查询。"""
     resp = httpx.post(
         f"{API_BASE}/api/v1/query",
-        json={"query": query, "kb_id": kb_id, "top_k": 5, "generate_answer": True},
+        json={
+            "query": query,
+            "kb_id": kb_id,
+            "top_k": 5,
+            "generate_answer": True,
+            "exclude_attack_docs": exclude_attack,
+        },
         timeout=timeout,
     )
     resp.raise_for_status()
@@ -436,27 +442,48 @@ def main():
             print(f"  - {cat}: {count}")
     print()
 
-    results = evaluate_all(queries)
-    metrics = compute_metrics(results)
+    # 跑两轮对照实验
+    results_physical = evaluate_all(queries, exclude_attack=True)
+    metrics_physical = compute_metrics(results_physical)
+
+    results_detect = evaluate_all(queries, exclude_attack=False)
+    metrics_detect = compute_metrics(results_detect)
 
     # 保存原始结果
-    raw_path = RESULTS_DIR / "eval_raw_results.json"
-    with open(raw_path, "w", encoding="utf-8") as f:
-        json.dump(
-            {"metrics": metrics, "results": [asdict(r) for r in results]},
-            f,
-            ensure_ascii=False,
-            indent=2,
-        )
-    print(f"\n原始结果已保存: {raw_path}")
+    for suffix, results, metrics in [
+        ("physical", results_physical, metrics_physical),
+        ("detect", results_detect, metrics_detect),
+    ]:
+        raw_path = RESULTS_DIR / f"eval_raw_results_{suffix}.json"
+        with open(raw_path, "w", encoding="utf-8") as f:
+            json.dump(
+                {"metrics": metrics, "results": [asdict(r) for r in results]},
+                f,
+                ensure_ascii=False,
+                indent=2,
+            )
+        print(f"\n原始结果已保存: {raw_path}")
 
-    # 保存指标摘要
-    metrics_path = RESULTS_DIR / "eval_metrics.json"
-    with open(metrics_path, "w", encoding="utf-8") as f:
-        json.dump(metrics, f, ensure_ascii=False, indent=2)
-    print(f"指标摘要已保存: {metrics_path}")
+        metrics_path = RESULTS_DIR / f"eval_metrics_{suffix}.json"
+        with open(metrics_path, "w", encoding="utf-8") as f:
+            json.dump(metrics, f, ensure_ascii=False, indent=2)
+        print(f"指标摘要已保存: {metrics_path}")
 
-    print_report(results, metrics)
+    # 对比报告
+    print("\n" + "=" * 70)
+    print("对照实验报告: PHYSICAL (exclude=true) vs DETECT (exclude=false)")
+    print("=" * 70)
+    print(f"\n{'指标':<30s} {'物理隔离':<15s} {'检测模式':<15s}")
+    print("-" * 60)
+    for key in ["accuracy", "detection_rate", "block_rate", "false_positive_rate", "false_negative_rate"]:
+        v1 = metrics_physical.get(key, 0)
+        v2 = metrics_detect.get(key, 0)
+        print(f"  {key:<28s} {v1:<15.3f} {v2:<15.3f}")
+
+    print("\n【物理隔离模式详细报告】")
+    print_report(results_physical, metrics_physical)
+    print("\n【检测模式详细报告】")
+    print_report(results_detect, metrics_detect)
 
 
 if __name__ == "__main__":

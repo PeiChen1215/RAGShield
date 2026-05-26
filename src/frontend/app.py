@@ -7,9 +7,14 @@
 """
 
 import json
+import os
+from pathlib import Path
 
 import gradio as gr
 import httpx
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 
 API_BASE = "http://localhost:8000/api/v1"
 
@@ -400,6 +405,76 @@ with gr.Blocks(title="RAGShield 防御演示") as demo:
             fill_mixed_btn.click(fill_mixed_docs, outputs=[upload_docs])
             fill_safe_btn.click(fill_safe_docs, outputs=[upload_docs])
             fill_attack_btn.click(fill_attack_docs, outputs=[upload_docs])
+
+        # ===== Tab 3: 评测报告（新增） =====
+        with gr.TabItem("评测报告"):
+            gr.Markdown(
+                "**说明**: 展示 `exclude_attack_docs` 两种模式的对照评测结果。"
+                "请先运行 `python scripts/evaluate.py` 生成评测数据。"
+            )
+            load_report_btn = gr.Button("加载评测结果", variant="primary")
+            report_status = gr.Markdown(label="状态")
+            chart_image = gr.Image(label="指标对比图")
+            report_table = gr.JSON(label="指标数据")
+
+            def generate_comparison_chart():
+                """读取两份评测指标，生成对比柱状图。"""
+                base = Path("results")
+                physical_path = base / "eval_metrics_physical.json"
+                detect_path = base / "eval_metrics_detect.json"
+
+                if not physical_path.exists() or not detect_path.exists():
+                    return (
+                        "[ERR] 未找到评测结果。请先运行: `python scripts/evaluate.py`",
+                        None,
+                        {},
+                    )
+
+                with open(physical_path, "r", encoding="utf-8") as f:
+                    m1 = json.load(f)
+                with open(detect_path, "r", encoding="utf-8") as f:
+                    m2 = json.load(f)
+
+                labels = ["准确率", "检测率", "阻断率", "误报率", "漏报率"]
+                keys = ["accuracy", "detection_rate", "block_rate", "false_positive_rate", "false_negative_rate"]
+                v1 = [m1.get(k, 0) for k in keys]
+                v2 = [m2.get(k, 0) for k in keys]
+
+                fig, ax = plt.subplots(figsize=(8, 4.5))
+                x = range(len(labels))
+                width = 0.35
+                ax.bar([i - width / 2 for i in x], v1, width, label="物理隔离 (exclude=true)", color="#2ecc71")
+                ax.bar([i + width / 2 for i in x], v2, width, label="检测模式 (exclude=false)", color="#e74c3c")
+                ax.set_ylabel("比率")
+                ax.set_title("RAGShield 两种防御模式指标对比")
+                ax.set_xticks(x)
+                ax.set_xticklabels(labels)
+                ax.legend()
+                ax.set_ylim(0, 1.1)
+                for i, (a, b) in enumerate(zip(v1, v2)):
+                    ax.text(i - width / 2, a + 0.02, f"{a:.2f}", ha="center", va="bottom", fontsize=9)
+                    ax.text(i + width / 2, b + 0.02, f"{b:.2f}", ha="center", va="bottom", fontsize=9)
+                plt.tight_layout()
+
+                chart_path = base / "eval_comparison_chart.png"
+                fig.savefig(chart_path, dpi=150)
+                plt.close(fig)
+
+                status_md = (
+                    f"[OK] 物理隔离: 准确率 {m1.get('accuracy', 0):.2f}, 检测率 {m1.get('detection_rate', 0):.2f}\n"
+                    f"[OK] 检测模式: 准确率 {m2.get('accuracy', 0):.2f}, 检测率 {m2.get('detection_rate', 0):.2f}"
+                )
+                table_data = {
+                    "指标": keys,
+                    "物理隔离(exclude=true)": v1,
+                    "检测模式(exclude=false)": v2,
+                }
+                return status_md, str(chart_path), table_data
+
+            load_report_btn.click(
+                generate_comparison_chart,
+                outputs=[report_status, chart_image, report_table],
+            )
 
 if __name__ == "__main__":
     demo.launch(server_name="0.0.0.0", server_port=7860)
