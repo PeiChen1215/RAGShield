@@ -1,0 +1,23 @@
+{
+  "layer1": {
+    "phase": "layer1",
+    "tp": 18,
+    "fn": 1,
+    "fp": 1,
+    "tn": 29,
+    "bdr": 0.9473684210526315,
+    "fpr": 0.03333333333333333,
+    "lcr": {
+      "prompt_guard": 0.3684210526315789,
+      "rule": 0.631578947368421,
+      "numeric": 0.10526315789473684,
+      "llm": 0.8947368421052632
+    }
+  },
+  "pipeline": {
+    "phase": "pipeline",
+    "adr": 1.0,
+    "architecture_blocks": 10,
+    "architecture_total": 10
+  }
+}
