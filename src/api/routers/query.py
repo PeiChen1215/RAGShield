@@ -295,6 +295,26 @@ async def query_detect(request: QueryRequest):
             )
         )
 
+    # 汇总 L1 五维度评分（从 scan_cache 取平均）
+    l1_detail_avg = {
+        "semantic_score": 0.0,
+        "consistency_score": 0.0,
+        "numeric_conflict_score": 0.0,
+        "text_score": 0.0,
+        "metadata_score": 0.0,
+        "total_score": 0.0,
+        "suspicious_doc_count": len(l1_suspicious_ids),
+        "attack_doc_count": attack_doc_count,
+    }
+    if l1_suspicious_map:
+        for info in l1_suspicious_map.values():
+            d = info.get("detail", {})
+            for k in ["semantic_score", "consistency_score", "numeric_conflict_score", "text_score", "metadata_score", "total_score"]:
+                l1_detail_avg[k] += d.get(k, 0.0)
+        for k in ["semantic_score", "consistency_score", "numeric_conflict_score", "text_score", "metadata_score", "total_score"]:
+            l1_detail_avg[k] /= len(l1_suspicious_map)
+            l1_detail_avg[k] = round(l1_detail_avg[k], 3)
+
     layer1 = Layer1Result(
         layer="knowledge_base",
         risk_score=layer1_risk_score,
@@ -304,6 +324,7 @@ async def query_detect(request: QueryRequest):
         detection_method=layer1_detection_method,
         reason=layer1_reason,
         latency_ms=l1_ms,
+        details=l1_detail_avg,
     )
 
     layer2 = Layer2Result(
@@ -315,6 +336,7 @@ async def query_detect(request: QueryRequest):
         retrieved_docs=retrieved_docs,
         relevance_scores=relevance_scores,
         suspicious_doc_count=int(l2_result["suspicious_doc_count"]),
+        source_trust_risk=float(l2_result.get("source_trust_risk", 0.0)),
         detection_method=str(l2_result["detection_method"]),
         reason=str(l2_result["reason"]),
         latency_ms=l2_ms,

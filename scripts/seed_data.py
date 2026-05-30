@@ -4,16 +4,16 @@
 职责: 一键生成并导入答辩演示数据集到知识库。
 
 数据集构成:
-- 100 篇正常文档（公司行政/IT安全/员工手册/产品FAQ/财务报销/研发规范/运维手册/法务合规/市场营销/客服标准）
-- 25 篇攻击文档（事实篡改/指令注入/数据投毒/提示泄露/权限提升/社会工程学）
+- 200 篇正常文档（公司行政/IT安全/员工手册/产品FAQ/财务报销/研发规范/运维手册/法务合规/市场营销/客服标准/生产安全/采购管理/项目管理/质量管理/等保/应急响应/数据治理/供应链安全/物理安全/第三方合作）
+- 50 篇攻击文档（事实篡改/指令注入/数据投毒/提示泄露/权限提升/社会工程学/间接注入/角色扮演越狱/诱导拒答/观点操纵/跨上下文污染/代码供应链投毒/数据渗出探针）
 
 知识库:
-- demo_safe: 仅 100 篇正常文档（用于 Demo 1 绿色 Safe）
-- demo_attack: 100 篇正常 + 25 篇攻击（用于 Demo 2/3 Warning/Block）
+- demo_safe: 200 篇正常文档（用于 Demo 1 绿色 Safe）
+- demo_attack: 200 篇正常 + 50 篇攻击（用于 Demo 2/3 Warning/Block）
 
 作者: RAGShield Team
 创建日期: 2026-05-07
-更新日期: 2026-05-20 — 扩展数据集至 100 篇正常 + 25 篇攻击 + 47 条评测查询
+更新日期: 2026-05-20 — 扩展数据集至 200 篇正常 + 50 篇攻击 + 100 条评测查询
 """
 
 import asyncio
@@ -22,8 +22,15 @@ import sys
 from typing import Dict, List
 
 import httpx
+from pathlib import Path
 
 API_BASE = "http://localhost:8000"
+
+# 扩展数据集 (V2)
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from data.normal_kb.extended_normal_docs_v2 import EXTENDED_NORMAL_DOCS_V2
+from data.extended_attack_docs_v2 import EXTENDED_ATTACK_DOCS_V2
+from data.additional_eval_queries import ADDITIONAL_QUERIES
 
 
 # ---------------------------------------------------------------------------
@@ -1306,7 +1313,7 @@ EXTENDED_ATTACK_DOCS = (
     + PRIVILEGE_ESCALATION_DOCS
     + SOCIAL_ENGINEERING_DOCS
 )
-ALL_ATTACK_DOCS = ATTACK_DOCS + EXTENDED_ATTACK_DOCS
+ALL_ATTACK_DOCS = ATTACK_DOCS + EXTENDED_ATTACK_DOCS + EXTENDED_ATTACK_DOCS_V2
 
 
 # ---------------------------------------------------------------------------
@@ -1401,9 +1408,10 @@ async def upload_batch(client: httpx.AsyncClient, kb_id: str, docs: List[Dict], 
         resp = await client.post(f"{API_BASE}/api/v1/kb/upload", json=payload, timeout=120.0)
         resp.raise_for_status()
         data = resp.json()
+        blocked = data.get('blocked_count', 0)
         print(
             f"  [{kb_id}] 批次 {i//batch_size + 1}/{(total-1)//batch_size + 1}: "
-            f"上传 {data['inserted_count']} 篇，检出可疑 {data['suspicious_count']} 篇，"
+            f"上传 {data['inserted_count']} 篇，阻断 {blocked} 篇，检出可疑 {data['suspicious_count']} 篇，"
             f"编码 {data.get('scan_latency_ms', 0)}ms"
         )
         await asyncio.sleep(0.5)
@@ -1423,7 +1431,7 @@ async def seed_all():
             print("请确认后端已启动: uvicorn src.api.main:app --host 0.0.0.0 --port 8000")
             sys.exit(1)
 
-        all_normal = NORMAL_DOCS + EXTENDED_NORMAL_DOCS
+        all_normal = NORMAL_DOCS + EXTENDED_NORMAL_DOCS + EXTENDED_NORMAL_DOCS_V2
 
         # --- demo_safe: 仅正常文档 ---
         print(f"\n创建知识库 [demo_safe] — {len(all_normal)} 篇正常文档")
@@ -1433,6 +1441,13 @@ async def seed_all():
         all_docs = all_normal + ALL_ATTACK_DOCS
         print(f"\n创建知识库 [demo_attack] — {len(all_normal)} 篇正常 + {len(ALL_ATTACK_DOCS)} 篇攻击")
         await upload_batch(client, "demo_attack", all_docs)
+
+    # 合并扩展评测查询集
+    for key, items in ADDITIONAL_QUERIES.items():
+        if key in EVAL_QUERIES:
+            EVAL_QUERIES[key].extend(items)
+        else:
+            EVAL_QUERIES[key] = items
 
     # 保存评测查询集
     eval_path = "data/eval_queries.json"

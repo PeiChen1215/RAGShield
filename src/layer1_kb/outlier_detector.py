@@ -140,7 +140,7 @@ class OutlierDetector:
         self,
         contamination: float = 0.05,
         lof_n_neighbors: int = 20,
-        cosine_threshold: float = 0.35,
+        cosine_threshold: float = 0.25,
         text_weight: float = 0.4,
         semantic_weight: float = 0.5,
         metadata_weight: float = 0.1,

@@ -18,8 +18,8 @@ class RiskFusion:
         knowledge_weight: float = 0.3,
         retrieval_weight: float = 0.3,
         generation_weight: float = 0.4,
-        danger_threshold: float = 0.4,
-        warning_threshold: float = 0.25,
+        danger_threshold: float = 0.32,
+        warning_threshold: float = 0.20,
     ):
         """初始化融合器。
 

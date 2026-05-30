@@ -1,0 +1,20 @@
+INFO:     Started server process [62572]
+INFO:     Waiting for application startup.
+D:\Gitproject\RAGshield\shield\lib\site-packages\torch\cuda\__init__.py:61: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+[Embedder] Loading from local: D:\Gitproject\RAGshield\models\bge-small-zh-v1.5
+Loading weights:   0%|          | 0/71 [00:00<?, ?it/s]Loading weights: 100%|██████████| 71/71 [00:00<00:00, 4703.10it/s]
+[lifespan] [OK] Embedder (BGE-small) 加载完成
+[lifespan] [OK] SensitiveNER 加载完成 (HanLP=False)
+[ConsistencyChecker] Loading reranker from local: D:\Gitproject\RAGshield\models\bge-reranker-large
+Loading weights:   0%|          | 0/393 [00:00<?, ?it/s]Loading weights: 100%|██████████| 393/393 [00:00<00:00, 5701.33it/s]
+[ConsistencyChecker] Loading NLI from local: D:\Gitproject\RAGshield\models\chinanli
+Loading weights:   0%|          | 0/202 [00:00<?, ?it/s]Loading weights: 100%|██████████| 202/202 [00:00<00:00, 3312.21it/s]
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [62572]
+[lifespan] [OK] ConsistencyChecker (reranker + NLI) 加载完成
+[lifespan] [STOP] 应用关闭，清理资源

@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "D:\Gitproject\RAGshield\scripts\evaluate.py", line 463, in <module>
+    main()
+  File "D:\Gitproject\RAGshield\scripts\evaluate.py", line 459, in main
+    print_report(results, metrics)
+  File "D:\Gitproject\RAGshield\scripts\evaluate.py", line 416, in print_report
+    print_detail_table(results)
+  File "D:\Gitproject\RAGshield\scripts\evaluate.py", line 366, in print_detail_table
+    print(
+UnicodeEncodeError: 'gbk' codec can't encode character '\u2705' in position 102: illegal multibyte sequence

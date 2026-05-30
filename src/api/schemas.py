@@ -89,6 +89,7 @@ class Layer1Result(BaseModel):
     detection_method: str = Field(..., description="触发检测的方法: if_lof|cosine_baseline|sensitive_entity")
     reason: str = Field(..., description="检测理由说明")
     latency_ms: int = Field(..., ge=0, description="检测耗时(毫秒)")
+    details: Dict = Field(default={}, description="L1 五维度评分详情汇总 {semantic_score, consistency_score, numeric_conflict_score, text_score, metadata_score, total_score}")
 
 
 class Layer2Result(BaseModel):
@@ -102,6 +103,7 @@ class Layer2Result(BaseModel):
     retrieved_docs: List[RetrievedDocument] = Field(default=[], description="检索结果文档")
     relevance_scores: List[float] = Field(default=[], description="查询-文档相似度列表")
     suspicious_doc_count: int = Field(default=0, ge=0, description="检索结果中包含的已标记可疑文档数量（Layer1 接力协同）")
+    source_trust_risk: float = Field(default=0.0, ge=0, le=1, description="来源可信度风险分（检索结果中低可信度来源的平均风险）")
     detection_method: str = Field(..., description="触发检测的方法: attention_variance|attention_variance+suspicious_relay|entropy")
     reason: str = Field(..., description="检测理由说明")
     latency_ms: int = Field(..., ge=0, description="检测耗时(毫秒)")
