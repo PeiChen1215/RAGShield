@@ -128,27 +128,15 @@ def _build_conflict_table(conflicts: list) -> str:
 # 查询检测
 # ---------------------------------------------------------------------------
 
-async def on_query_submit(query: str, docs_json: str):
+async def on_query_submit(query: str):
     if not query or not query.strip():
         return "请输入查询内容", "<span class='status-safe'>等待输入</span>", "", "", "", ""
-    
-    # 解析检索文档
-    retrieved_docs = []
-    try:
-        if docs_json.strip():
-            docs_data = json.loads(docs_json)
-            if isinstance(docs_data, list):
-                retrieved_docs = docs_data
-            elif isinstance(docs_data, dict):
-                retrieved_docs = [docs_data]
-    except Exception:
-        pass
     
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.post(
                 f"{API_BASE}/query/detect",
-                json={"query": query.strip(), "retrieved_docs": retrieved_docs, "generate_answer": True},
+                json={"query": query.strip(), "generate_answer": True},
                 timeout=120.0,
             )
             if resp.status_code != 200:
@@ -295,12 +283,7 @@ with gr.Blocks(title="RAGShield V2") as demo:
         with gr.TabItem("查询检测"):
             with gr.Row():
                 with gr.Column(scale=2):
-                    query_input = gr.Textbox(label="用户查询", placeholder="输入查询内容...", lines=2)
-                    docs_input = gr.Textbox(
-                        label="检索文档 (JSON 数组)",
-                        value='[\n  {\n    "doc_id": "hr_001",\n    "text": "公司员工每年享有10天带薪年假，需提前5天申请。",\n    "relevance_score": 0.95\n  }\n]',
-                        lines=6,
-                    )
+                    query_input = gr.Textbox(label="用户查询", placeholder="输入查询内容...", lines=3)
                     submit_btn = gr.Button("执行全链路检测", variant="primary")
                 
                 with gr.Column(scale=3):
@@ -320,7 +303,7 @@ with gr.Blocks(title="RAGShield V2") as demo:
             
             submit_btn.click(
                 fn=on_query_submit,
-                inputs=[query_input, docs_input],
+                inputs=[query_input],
                 outputs=[answer_output, risk_output, layer_cards, facts_output, conflicts_output, footer_output],
             )
         

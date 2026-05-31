@@ -28,7 +28,6 @@ class KBUploadRequest(BaseModel):
 
 class QueryRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=2000, description="用户查询文本")
-    retrieved_docs: List[RetrievedDocument] = Field(default=[], description="检索到的文档列表")
     kb_id: str = Field(default="default", description="知识库 ID")
     generate_answer: bool = Field(default=True, description="是否调用 LLM 生成回答")
     skip_layer0: bool = Field(default=False, description="调试时跳过 Layer0")

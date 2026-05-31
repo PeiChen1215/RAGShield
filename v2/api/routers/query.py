@@ -8,9 +8,8 @@ from typing import List
 
 from fastapi import APIRouter
 
-from v2.api.schemas import QueryRequest, QueryResponse, RetrievedDocument
+from v2.api.schemas import QueryRequest, QueryResponse
 from v2.pipeline import RAGShieldPipeline
-from v2.interfaces import Doc
 
 router = APIRouter()
 
@@ -31,21 +30,10 @@ async def query_detect(request: QueryRequest):
     t0 = time.time()
     pipeline = _get_pipeline()
     
-    # 转换检索文档为内部 Doc 类型
-    retrieved_docs: List[Doc] = []
-    for d in request.retrieved_docs:
-        retrieved_docs.append(Doc(
-            doc_id=d.doc_id,
-            text=d.text,
-            metadata=d.metadata,
-            relevance_score=d.relevance_score,
-        ))
-    
     try:
-        # 执行全链路
+        # 执行全链路（自动检索文档）
         result = pipeline.process_query(
             query=request.query,
-            retrieved_docs=retrieved_docs,
             skip_layer0=request.skip_layer0,
         )
     except Exception as e:

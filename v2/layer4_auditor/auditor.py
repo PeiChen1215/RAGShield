@@ -21,10 +21,10 @@ class FactAuditor:
     def _extract_topic(self, content: str) -> str:
         """从事实内容中提取主题（简单规则）"""
         for topic in self.numeric_tolerance.keys():
-            if any(kw in content for kw in [topic]):
+            if topic in content:
                 return topic
         
-        # 通用主题提取
+        # 通用主题提取 — 避免不相关数值归为同一组
         if "年假" in content or "带薪" in content:
             return "年假天数"
         if "密码" in content and ("位" in content or "长度" in content):
@@ -35,8 +35,21 @@ class FactAuditor:
             return "试用期时长"
         if "退休" in content:
             return "退休年龄"
+        if "电话" in content or "内线" in content or "分机" in content:
+            return "联系电话"
+        if "端口" in content:
+            return "端口号"
+        if "保留" in content and ("天" in content or "日" in content):
+            return "日志保留天数"
+        if "工资" in content or "薪资" in content or "月薪" in content:
+            return "月薪标准"
+        if "年会" in content:
+            return "年会预算"
+        if "团建" in content:
+            return "团建预算"
         
-        return "general"
+        # 无法归类的数值，使用独立主题避免两两比较
+        return f"other_{hash(content) % 10000}"
     
     def _extract_number(self, content: str) -> Optional[float]:
         """从文本中提取第一个数值"""
@@ -76,7 +89,7 @@ class FactAuditor:
                     values.append((num, f))
             
             # 检测同主题数值是否矛盾
-            threshold = self.numeric_tolerance.get(topic, 5)
+            threshold = self.numeric_tolerance.get(topic, 1000)  # 默认阈值很高，避免无关数值冲突
             for i in range(len(values)):
                 for j in range(i + 1, len(values)):
                     v1, f1 = values[i]
@@ -195,11 +208,12 @@ class FactAuditor:
             else:
                 verified_facts.append(fact)
         
-        # 5. 总体风险
-        overall_risk = min(
-            len(all_conflicts) * 0.25 + len(unverified_facts) * 0.05,
-            1.0
-        )
+        # 5. 总体风险（对数衰减，避免大量低危冲突导致满分）
+        # 取冲突最大严重性 + 对数累加次要冲突
+        max_severity = max((c.severity for c in all_conflicts), default=0.0)
+        conflict_score = max_severity + min(len(all_conflicts) * 0.03, 0.4)
+        unverified_score = min(len(unverified_facts) * 0.01, 0.3)
+        overall_risk = min(conflict_score + unverified_score, 1.0)
         
         return AuditResult(
             verified_facts=verified_facts,

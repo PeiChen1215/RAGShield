@@ -17,6 +17,7 @@ from v2.layer4_auditor.auditor import FactAuditor
 from v2.layer5_synthesizer.synthesizer import SafeSynthesizer
 from v2.layer6_output_audit.auditor import OutputAuditor
 from v2.risk_fusion.engine import RiskFusionEngine
+from v2.retriever import get_retriever, KbRetriever
 
 
 class RAGShieldPipeline:
@@ -24,7 +25,7 @@ class RAGShieldPipeline:
     RAGShield V2 全链路防御流水线。
     """
     
-    def __init__(self):
+    def __init__(self, auto_retrieve: bool = True, top_k: int = 20):
         self.layer0 = QuerySafetyScanner()
         self.layer1 = DocumentSafetyChecker()
         self.layer2 = RetrievalSafetyAnalyzer()
@@ -33,11 +34,20 @@ class RAGShieldPipeline:
         self.layer5 = SafeSynthesizer()
         self.layer6 = OutputAuditor()
         self.fusion = RiskFusionEngine()
+        self.auto_retrieve = auto_retrieve
+        self.top_k = top_k
+        self._retriever: Optional[KbRetriever] = None
+    
+    def _get_retriever(self) -> KbRetriever:
+        if self._retriever is None:
+            self._retriever = get_retriever()
+            self._retriever.top_k = self.top_k
+        return self._retriever
     
     def process_query(
         self,
         query: str,
-        retrieved_docs: List[Doc],
+        retrieved_docs: Optional[List[Doc]] = None,
         skip_layer0: bool = False,
     ) -> ShieldPipelineResult:
         """
@@ -45,7 +55,7 @@ class RAGShieldPipeline:
         
         Args:
             query: 用户查询
-            retrieved_docs: 检索到的文档列表（已预检索）
+            retrieved_docs: 可选，外部传入的文档列表。若为 None 则自动从 Chroma 检索。
             skip_layer0: 是否跳过查询扫描（用于测试）
         
         Returns:
@@ -69,6 +79,21 @@ class RAGShieldPipeline:
                     generated_answer=None,
                 )
                 return result
+        
+        # ========== Auto Retrieval (if not provided) ==========
+        if retrieved_docs is None and self.auto_retrieve:
+            try:
+                retriever = self._get_retriever()
+                retrieved_docs = retriever.retrieve(query)
+                print(f"[DEBUG] Retrieved {len(retrieved_docs)} docs for query: {query[:40]}")
+            except Exception as e:
+                print(f"[WARN] Auto retrieval failed: {e}")
+                import traceback
+                traceback.print_exc()
+                retrieved_docs = []
+        
+        if retrieved_docs is None:
+            retrieved_docs = []
         
         # ========== Layer 2: 检索安全层 ==========
         result.layer2_result = self.layer2.analyze(query, retrieved_docs)

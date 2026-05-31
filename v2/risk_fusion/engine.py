@@ -41,7 +41,9 @@ class RiskFusionEngine:
         if layer1:
             scores["L1"] = layer1.risk_score if layer1.action.value != "block" else 1.0
         if layer2:
-            scores["L2"] = layer2.distribution_risk + (0.3 if layer2.risky_docs else 0)
+            # risky doc penalty: 0.5 base + 0.1 per risky doc, cap at 1.0
+            risky_penalty = min(0.5 + len(layer2.risky_docs) * 0.1, 1.0) if layer2.risky_docs else 0.0
+            scores["L2"] = max(layer2.distribution_risk, risky_penalty)
             scores["L2"] = min(scores["L2"], 1.0)
         if layer4:
             scores["L4"] = layer4.overall_risk
