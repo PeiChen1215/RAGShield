@@ -41,8 +41,15 @@ class RiskFusionEngine:
         if layer1:
             scores["L1"] = layer1.risk_score if layer1.action.value != "block" else 1.0
         if layer2:
-            # risky doc penalty: 0.5 base + 0.1 per risky doc, cap at 1.0
-            risky_penalty = min(0.5 + len(layer2.risky_docs) * 0.1, 1.0) if layer2.risky_docs else 0.0
+            # risky doc penalty: 仅当 risky 比例高或分布异常时才给分
+            # 检索到攻击文档不等于查询是攻击，Extractor/Auditor/Synthesizer 会处理
+            total_docs = len(layer2.safe_docs) + len(layer2.risky_docs)
+            risky_ratio = len(layer2.risky_docs) / max(total_docs, 1)
+            # 只有 risky 比例 >= 50% 或分布异常才给分
+            if risky_ratio >= 0.5:
+                risky_penalty = min(0.4 + risky_ratio * 0.3, 0.7)
+            else:
+                risky_penalty = 0.0
             scores["L2"] = max(layer2.distribution_risk, risky_penalty)
             scores["L2"] = min(scores["L2"], 1.0)
         if layer4:

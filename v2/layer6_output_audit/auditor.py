@@ -83,19 +83,26 @@ class OutputAuditor:
     """
     Layer 6 输出审计器。
     LLM优先，规则兜底。
+    低风险查询跳过 LLM 审计，仅使用规则兜底以加速响应。
     """
     
     def __init__(self):
         self.client = get_default_llm_client()
         self.rule_auditor = RuleOutputAuditor()
+        self.skip_llm_threshold = 0.25  # fusion_score < 0.25 时跳过 LLM 审计
     
-    def audit(self, query: str, answer: str, facts: List[Fact] = None) -> OutputAuditResult:
+    def audit(self, query: str, answer: str, facts: List[Fact] = None, fusion_score: float = 0.0) -> OutputAuditResult:
         """
         审计生成的回答。
         决策优先级：LLM优先，规则兜底。
+        低风险查询(fusion_score < 0.25)跳过LLM，仅用规则兜底。
         """
         # 先运行规则审计（始终运行，作为兜底）
         rule_result = self.rule_auditor.audit(answer)
+        
+        # 低风险查询跳过 LLM 审计
+        if fusion_score < self.skip_llm_threshold:
+            return rule_result
         
         # 尝试 LLM 审计
         try:

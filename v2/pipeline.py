@@ -121,10 +121,17 @@ class RAGShieldPipeline:
         )
         
         # ========== Layer 6: 输出审计 ==========
+        # 预计算快速风险分数：低风险查询跳过 LLM 审计，仅用规则兜底加速
+        pre_fusion_score = max(
+            (result.layer0_result.risk_score if result.layer0_result else 0.0),
+            (result.layer2_result.distribution_risk + (0.3 if result.layer2_result.risky_docs else 0.0) if result.layer2_result else 0.0),
+            (result.layer4_audit.overall_risk if result.layer4_audit else 0.0),
+        )
         result.layer6_audit = self.layer6.audit(
             query,
             result.layer5_generation.answer,
             result.layer4_audit.verified_facts,
+            fusion_score=pre_fusion_score,
         )
         
         # ========== 风险融合 + 响应决策 ==========

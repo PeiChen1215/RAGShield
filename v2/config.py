@@ -45,8 +45,8 @@ class ShieldConfig:
     retrieval_head_tail_gap_threshold: float = 0.5
     
     # Extractor
-    extractor_chunk_size: int = 500
-    extractor_chunk_overlap: int = 50
+    extractor_chunk_size: int = 2000
+    extractor_chunk_overlap: int = 100
     extractor_pg_threshold: float = 0.5
     
     # Auditor
@@ -62,7 +62,7 @@ class ShieldConfig:
     })
     
     # Synthesizer
-    synthesizer_max_facts: int = 30
+    synthesizer_max_facts: int = 10
     
     # Layer 6 输出审计
     output_audit_threshold: float = 0.6

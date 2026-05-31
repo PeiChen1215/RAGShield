@@ -84,14 +84,23 @@ class ContentExtractor:
         
         return [c for c in chunks if c]
     
-    def _extract_facts_with_llm(self, chunk: str, doc_id: str, chunk_idx: int) -> List[Fact]:
-        """使用 LLM 从文本段中提取结构化事实"""
+    def _extract_facts_with_llm(self, chunks: List[tuple], doc_id: str) -> List[Fact]:
+        """使用 LLM 批量从多个文本段中提取结构化事实"""
+        if not chunks:
+            return []
+        
+        # 合并多个 chunks 到一个 prompt（减少 LLM 调用次数）
+        context_parts = []
+        for idx, chunk in chunks:
+            context_parts.append(f"--- 段落 [{idx}] ---\n{chunk}\n")
+        combined = "\n".join(context_parts)
+        
         try:
             result = self.client.generate_json(
                 system_prompt=EXTRACTOR_SYSTEM_PROMPT,
-                user_prompt=f"文档ID: {doc_id}\n段落索引: {chunk_idx}\n\n内容:\n{chunk}",
+                user_prompt=f"文档ID: {doc_id}\n\n{combined}",
                 temperature=0.1,
-                max_tokens=800,
+                max_tokens=1024,
             )
             
             facts = []
@@ -115,6 +124,9 @@ class ContentExtractor:
                 except ValueError:
                     fact_type = FactType.OTHER
                 
+                # 尝试从 item 中获取 chunk_idx，否则默认为 0
+                chunk_idx = item.get("chunk_idx", 0)
+                
                 facts.append(Fact(
                     type=fact_type,
                     content=content,
@@ -127,38 +139,47 @@ class ContentExtractor:
             
             return facts
         except Exception as e:
-            # LLM 失败时，降级为简单提取：返回原文作为 other 类型
-            return [Fact(
-                type=FactType.OTHER,
-                content=chunk[:200],
-                source_doc_id=doc_id,
-                source_chunk_idx=chunk_idx,
-                confidence=0.3,
-                risk_level="medium",
-                risk_reason=f"Extractor LLM 失败({str(e)})，降级为原文",
-            )]
+            # LLM 失败时，降级为简单提取：每段返回原文作为 other 类型
+            facts = []
+            for idx, chunk in chunks:
+                facts.append(Fact(
+                    type=FactType.OTHER,
+                    content=chunk[:200],
+                    source_doc_id=doc_id,
+                    source_chunk_idx=idx,
+                    confidence=0.3,
+                    risk_level="medium",
+                    risk_reason=f"Extractor LLM 失败({str(e)})，降级为原文",
+                ))
+            return facts
     
     def extract(self, docs: List[Doc]) -> List[Fact]:
         """
         从文档集合中提取结构化事实。
+        只处理 top-5 最相关的文档，以减少 LLM 调用次数和延迟。
         
         处理流程：
-        1. 文档分段
-        2. 逐段 PromptGuard 扫描
-        3. LLM 结构化事实提取
-        4. 风险等级标注
+        1. 按相关性排序，取 top-5
+        2. 文档分段
+        3. 逐段 PromptGuard 扫描
+        4. LLM 结构化事实提取
+        5. 风险等级标注
         """
         all_facts = []
         
-        for doc in docs:
+        # 只处理 top-5 最相关的文档（按 relevance_score 降序）
+        sorted_docs = sorted(docs, key=lambda d: d.relevance_score or 0, reverse=True)[:5]
+        
+        for doc in sorted_docs:
             chunks = self._chunk_text(doc.text, CONFIG.extractor_chunk_size, CONFIG.extractor_chunk_overlap)
             
+            # 批量收集 chunks，单次 LLM 调用提取（减少 API 调用次数）
+            batch_chunks = []
             for idx, chunk in enumerate(chunks):
                 # PromptGuard 扫描
                 pg_score = self.pg.detect(chunk)
                 
                 if pg_score >= 0.8:
-                    # 极高风险段落：不提取事实，只记录警告
                     all_facts.append(Fact(
                         type=FactType.WARNING,
                         content=f"段落被 PromptGuard 标记为高风险，已跳过提取",
@@ -170,15 +191,20 @@ class ContentExtractor:
                     ))
                     continue
                 
-                # LLM 提取事实
-                facts = self._extract_facts_with_llm(chunk, doc.doc_id, idx)
+                batch_chunks.append((idx, chunk, pg_score))
+            
+            # 批量 LLM 提取（整篇文档一次调用）
+            if batch_chunks:
+                chunks_for_llm = [(idx, chunk) for idx, chunk, _ in batch_chunks]
+                facts = self._extract_facts_with_llm(chunks_for_llm, doc.doc_id)
                 
-                # 如果段落被 PromptGuard 标记为中等风险，提升所有提取事实的风险等级
-                if pg_score >= 0.5:
-                    for f in facts:
-                        if f.risk_level == "safe":
-                            f.risk_level = "medium"
-                            f.risk_reason = (f.risk_reason or "") + f" [段落PromptGuard={pg_score:.2f}]"
+                # 应用 PromptGuard 风险等级提升
+                for idx, chunk, pg_score in batch_chunks:
+                    if pg_score >= 0.5:
+                        for f in facts:
+                            if f.source_chunk_idx == idx and f.risk_level == "safe":
+                                f.risk_level = "medium"
+                                f.risk_reason = (f.risk_reason or "") + f" [段落PromptGuard={pg_score:.2f}]"
                 
                 all_facts.extend(facts)
         

@@ -46,11 +46,16 @@ htmlcov/
 
 # 数据（大文件/运行时生成）
 data/chroma_db/
+v2/data/chroma_db/
 data/layer1_scan_cache_*.jsonl
 data/chroma_backup_export.json
 *.tar
 *.zip
 *.gz
+
+# 日志和临时目录
+logs/
+tmp/
 
 # 模型缓存（运行时下载）
 models/

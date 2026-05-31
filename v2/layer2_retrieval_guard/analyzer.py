@@ -93,7 +93,7 @@ class RetrievalSafetyAnalyzer:
         
         for doc in retrieved_docs:
             pg_score = self.pg.detect(doc.text)
-            if pg_score >= 0.5:
+            if pg_score >= 0.7:
                 # 标记风险但不直接丢弃（保留给 Auditor 判断）
                 doc.metadata["_retrieval_pg_score"] = pg_score
                 risky_docs.append(doc)
