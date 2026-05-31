@@ -10,16 +10,22 @@ import openai
 
 
 def _load_env():
-    """尝试从 .env 文件加载环境变量"""
-    env_path = os.path.join(os.getcwd(), ".env")
-    if os.path.exists(env_path):
-        with open(env_path, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                key, val = line.split("=", 1)
-                os.environ.setdefault(key.strip(), val.strip().strip('"').strip("'"))
+    """尝试从 .env 文件加载环境变量（优先 v2/ 目录，fallback 当前工作目录）"""
+    script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    candidates = [
+        os.path.join(script_dir, ".env"),      # v2/.env
+        os.path.join(os.getcwd(), ".env"),     # ./.env
+    ]
+    for env_path in candidates:
+        if os.path.exists(env_path):
+            with open(env_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    key, val = line.split("=", 1)
+                    os.environ.setdefault(key.strip(), val.strip().strip('"').strip("'"))
+            break
 
 
 _load_env()
