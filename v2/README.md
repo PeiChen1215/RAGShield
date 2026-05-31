@@ -73,6 +73,33 @@ print(result.final_decision.answer)   # 生成的回答
 python -m v2.tests.run_evaluation
 ```
 
+### 启动前后端服务
+
+**一键启动（推荐）**
+```bash
+python v2/start_servers.py
+```
+自动启动 FastAPI 后端（端口 8000）+ Gradio 前端（端口 7860）。
+
+**手动启动**
+```bash
+# 终端 1: 启动后端
+python -m uvicorn v2.api.main:app --host 0.0.0.0 --port 8000
+
+# 终端 2: 启动前端
+python -m v2.frontend.app
+```
+
+### API 端点
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `GET /health` | GET | 健康检查 |
+| `/api/v2/query/detect` | POST | 查询全链路七层检测 |
+| `/api/v2/kb/upload` | POST | 知识库文档上传 + Layer1 扫描 |
+
+API 文档（Swagger UI）: http://localhost:8000/docs
+
 ## 项目结构
 
 ```
