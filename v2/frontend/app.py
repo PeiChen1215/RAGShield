@@ -197,7 +197,7 @@ async def on_query_submit(query: str):
     facts_html = _build_fact_table(facts)
     
     # 冲突表格
-    conflicts = result.get("layer4", {}).get("conflicts", [])
+    conflicts = (result.get("layer4") or {}).get("conflicts", [])
     conflicts_html = _build_conflict_table(conflicts)
     
     latency = result.get("latency_ms", 0)
