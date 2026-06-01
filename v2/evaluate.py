@@ -2,13 +2,19 @@
 RAGShield V2 综合评测脚本 v2.0
 功能：批量运行全部测试用例，保存每层参数，支持断点续跑，自动生成分析报告
 
-用法：
-    python evaluate.py                    # 运行全部测试用例
-    python evaluate.py --limit 20         # 只跑前20条
-    python evaluate.py --cats B,C         # 只跑B类和C类
-    python evaluate.py --resume           # 断点续跑（跳过已完成的）
-    python evaluate.py --delay 1          # 设置请求间隔1秒（默认2秒）
-    python evaluate.py --output my_eval   # 自定义输出文件名前缀
+用法（在项目根目录执行）：
+    python v2/evaluate.py                    # 运行全部测试用例
+    python v2/evaluate.py --limit 20         # 只跑前20条
+    python v2/evaluate.py --cats B,C         # 只跑B类和C类
+    python v2/evaluate.py --resume           # 断点续跑（跳过已完成的）
+    python v2/evaluate.py --delay 1          # 设置请求间隔1秒（默认2秒）
+    python v2/evaluate.py --output my_eval   # 自定义输出文件名前缀
+
+启动后端服务（在项目根目录执行）：
+    python -m uvicorn v2.api.main:app --host 0.0.0.0 --port 8000
+
+或一键启动前后端：
+    python v2/start_servers.py
 
 输出文件：
     results/eval_{timestamp}_raw.json     # 每条测试的完整原始响应
@@ -555,7 +561,9 @@ def main():
         print(c(f"[OK] API健康检查: {status}", Colors.OK))
     except Exception as e:
         print(c(f"❌ API连接失败: {e}", Colors.FAIL))
-        print(c(f"   请确保后端已启动: python -m uvicorn v2.api.main:app --port 8000", Colors.INFO))
+        print(c(f"   请确保后端已启动（在项目根目录执行）:", Colors.INFO))
+        print(c(f"   python -m uvicorn v2.api.main:app --host 0.0.0.0 --port 8000", Colors.INFO))
+        print(c(f"   或一键启动: python v2/start_servers.py", Colors.INFO))
         sys.exit(1)
 
     # 加载测试用例
